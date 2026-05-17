@@ -54,20 +54,12 @@
     background: linear-gradient(135deg, rgba(108,140,255,0.08) 0%, rgba(168,85,247,0.08) 100%);
     border-bottom: 1px solid var(--border);
   }
-  .hero h1 {
-    font-size: 2.8rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 12px;
-  }
-  .hero .subtitle {
-    font-size: 1.2rem;
-    color: var(--text-dim);
-    max-width: 600px;
-    margin: 0 auto;
-    line-height: 1.6;
+  .hero-img {
+    width: 100%;
+    max-width: 1200px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
   }
   .hero .course-info {
     margin-top: 20px;
@@ -196,8 +188,7 @@
 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
 
 <div class="hero">
-  <h1>Computer Vision Visualizations</h1>
-  <p class="subtitle">Interactive browser-based replicas of the Jupyter notebook visualizations from the Oxford Computer Vision course.</p>
+  <img src="hero-banner.png" alt="Computer Vision Interactive Visualizations" class="hero-img">
   <p class="course-info">Based on <a href="https://github.com/chrirupp/cv_course" target="_blank">cv_course</a> by Christian Rupprecht, HT 2025</p>
 </div>
 
