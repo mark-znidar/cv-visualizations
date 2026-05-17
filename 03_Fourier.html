@@ -253,6 +253,11 @@ canvas.nn { image-rendering: pixelated; }
 }
 .theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .theme-toggle:hover{transform:scale(1.1)}
+.play-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--accent,#6c8cff);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;transition:filter .15s}
+.play-btn:hover{filter:brightness(1.15)}
+.play-btn.playing{background:#ff5555}
+.speed-control{display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:.78rem;color:var(--text-dim,var(--text2,#888))}
+.speed-control input[type=range]{width:80px;accent-color:var(--accent,#6c8cff)}
 </style>
 </head>
 <body>
@@ -388,6 +393,8 @@ canvas.nn { image-rendering: pixelated; }
         </select>
       </label>
       <label>Cutoff radius: <input type="range" id="filter-cutoff" min="1" max="128" value="30" oninput="updateFilterVal(); applyFilter()"><span class="val" id="filter-cutoff-val">30</span></label>
+      <button class="play-btn" id="filter-cutoff-play">▶ Sweep</button>
+      <span class="speed-control"><label>Speed <input type="range" id="filter-cutoff-speed" min="0.2" max="3" step="0.1" value="1"><span class="val" id="filter-cutoff-speed-val">1.0×</span></label></span>
     </div>
     <div class="vis-row" id="filter-row">
       <div class="vis-item"><canvas id="filt-orig" width="256" height="256"></canvas><div class="label">Original</div></div>
@@ -987,6 +994,44 @@ function applyFilter() {
 }
 
 loadFilterImage();
+
+function createSliderAnimator(slider, btn, speedSlider, onUpdate) {
+  let playing = false, progress = 0, direction = 1, lastTime = 0;
+  function tick(time) {
+    if (!playing) return;
+    if (!lastTime) lastTime = time;
+    const dt = (time - lastTime) / 1000;
+    lastTime = time;
+    const speed = speedSlider ? parseFloat(speedSlider.value) : 1;
+    progress += dt * 0.3 * speed * direction;
+    if (progress >= 1) { progress = 1; direction = -1; }
+    if (progress <= 0) { progress = 0; direction = 1; }
+    const min = parseFloat(slider.min), max = parseFloat(slider.max);
+    const step = parseFloat(slider.step) || 1;
+    let val = min + progress * (max - min);
+    val = Math.round(val / step) * step;
+    slider.value = val;
+    slider.dispatchEvent(new Event('input'));
+    if (onUpdate) onUpdate(val);
+    requestAnimationFrame(tick);
+  }
+  btn.addEventListener('click', () => {
+    playing = !playing;
+    btn.textContent = playing ? '⏸ Pause' : '▶ Sweep';
+    btn.classList.toggle('playing', playing);
+    if (playing) { lastTime = 0; requestAnimationFrame(tick); }
+  });
+}
+
+(function initFilterAnimator() {
+  const slider = document.getElementById('filter-cutoff');
+  const btn = document.getElementById('filter-cutoff-play');
+  const speedSlider = document.getElementById('filter-cutoff-speed');
+  speedSlider.addEventListener('input', function() {
+    document.getElementById('filter-cutoff-speed-val').textContent = parseFloat(this.value).toFixed(1) + '×';
+  });
+  createSliderAnimator(slider, btn, speedSlider);
+})();
 
 function toggleTheme(){
   const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';

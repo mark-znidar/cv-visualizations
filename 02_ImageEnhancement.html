@@ -58,6 +58,12 @@ canvas,img{max-width:100%;border-radius:6px}
 .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-overlay p{margin-top:14px;color:var(--text2);font-size:.9rem}
+.play-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--accent,#6c8cff);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;transition:filter .15s}
+.play-btn:hover{filter:brightness(1.15)}
+.play-btn.playing{background:var(--red,#ff6b6b)}
+.speed-control{display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:.78rem;color:var(--text2,#9da3b8)}
+.speed-control input[type=range]{width:80px;accent-color:var(--accent,#6c8cff)}
+.play-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -137,6 +143,7 @@ canvas,img{max-width:100%;border-radius:6px}
 <h3>Affine Contrast: clip(α·I + β, 0, 255)</h3>
 <div class="controls">
 <div class="control-group"><label>α</label><input type="range" id="alpha-slider" min="0" max="2" step="0.05" value="1"><span class="val" id="alpha-val">1.00</span></div>
+<button class="play-btn" id="alpha-sweep-btn">▶ Sweep α</button>
 <div class="control-group"><label>β</label><input type="range" id="beta-slider" min="-128" max="128" step="1" value="0"><span class="val" id="beta-val">0</span></div>
 </div>
 <div class="row"><div class="col"><label class="img-label">Original</label><canvas id="affine-orig"></canvas></div><div class="col"><label class="img-label">Transformed</label><canvas id="affine-out"></canvas></div></div>
@@ -146,6 +153,7 @@ canvas,img{max-width:100%;border-radius:6px}
 <h3>Gamma: clip(I<sup>γ</sup>, 0, 255)</h3>
 <div class="controls">
 <div class="control-group"><label>γ</label><input type="range" id="gamma-slider" min="0.3" max="3.0" step="0.05" value="1.0"><span class="val" id="gamma-val">1.00</span></div>
+<button class="play-btn" id="gamma-sweep-btn">▶ Sweep γ</button>
 </div>
 <div class="row"><div class="col"><label class="img-label">Original</label><canvas id="gamma-orig"></canvas></div><div class="col"><label class="img-label">Transformed</label><canvas id="gamma-out"></canvas></div></div>
 </div>
@@ -185,6 +193,43 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
 /* ─── helpers ─── */
 function clamp(v,lo=0,hi=255){return v<lo?lo:v>hi?hi:v}
+
+function createAnimator(sliders, speedSlider, btn, label) {
+  let playing = false;
+  let progress = 0;
+  let direction = 1;
+  let lastTime = 0;
+
+  function tick(time) {
+    if (!playing) return;
+    if (!lastTime) lastTime = time;
+    const dt = (time - lastTime) / 1000;
+    lastTime = time;
+    const speed = speedSlider ? parseFloat(speedSlider.value) : 1;
+    progress += dt * 0.3 * speed * direction;
+    if (progress >= 1) { progress = 1; direction = -1; }
+    if (progress <= 0) { progress = 0; direction = 1; }
+
+    for (const s of sliders) {
+      const min = parseFloat(s.slider.min);
+      const max = parseFloat(s.slider.max);
+      const step = parseFloat(s.slider.step) || 1;
+      let val = min + progress * (max - min);
+      val = Math.round(val / step) * step;
+      s.slider.value = val;
+      s.slider.dispatchEvent(new Event('input'));
+    }
+    requestAnimationFrame(tick);
+  }
+
+  const playLabel = label || '▶ Play';
+  btn.addEventListener('click', () => {
+    playing = !playing;
+    btn.textContent = playing ? '⏸ Pause' : playLabel;
+    btn.classList.toggle('playing', playing);
+    if (playing) { lastTime = 0; requestAnimationFrame(tick); }
+  });
+}
 
 function makeCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
 
@@ -459,6 +504,9 @@ function buildPointwise(srcData,W,H){
     alphaS.addEventListener('input',updateAffine);
     betaS.addEventListener('input',updateAffine);
     updateAffine();
+
+    const alphaSweepBtn=document.getElementById('alpha-sweep-btn');
+    createAnimator([{slider:alphaS}], null, alphaSweepBtn, '▶ Sweep α');
   }
 
   /* gamma */
@@ -484,6 +532,9 @@ function buildPointwise(srcData,W,H){
     }
     gammaS.addEventListener('input',updateGamma);
     updateGamma();
+
+    const gammaSweepBtn=document.getElementById('gamma-sweep-btn');
+    createAnimator([{slider:gammaS}], null, gammaSweepBtn, '▶ Sweep γ');
   }
 }
 
@@ -571,6 +622,7 @@ function buildGeometric(img,W,H){
    ═══════════════════════════════════════ */
 function buildFiltering(srcData,W,H){
   const panel=document.getElementById('filter-panel');
+  const secBody=document.getElementById('sec-filter');
   const DS=4;
   const sw=Math.floor(W/DS), sh=Math.floor(H/DS);
   const small=downsample(srcData,W,H,DS);
@@ -584,6 +636,31 @@ function buildFiltering(srcData,W,H){
     const v=Math.random()<0.5?0:255;
     noisy[idx]=noisy[idx+1]=noisy[idx+2]=v;
   }
+
+  /* Play All Filters bar */
+  const playBar=document.createElement('div');
+  playBar.className='play-bar';
+  const playBtn=document.createElement('button');
+  playBtn.className='play-btn';
+  playBtn.textContent='▶ Play All Filters';
+  playBar.appendChild(playBtn);
+
+  const speedWrap=document.createElement('span');
+  speedWrap.className='speed-control';
+  const speedLabel=document.createElement('span');
+  speedLabel.textContent='Speed:';
+  const speedSlider=document.createElement('input');
+  speedSlider.type='range';speedSlider.min='0.5';speedSlider.max='3';speedSlider.step='0.1';speedSlider.value='1';
+  const speedVal=document.createElement('span');
+  speedVal.textContent='1.0x';
+  speedSlider.addEventListener('input',()=>{speedVal.textContent=parseFloat(speedSlider.value).toFixed(1)+'x';});
+  speedWrap.appendChild(speedLabel);
+  speedWrap.appendChild(speedSlider);
+  speedWrap.appendChild(speedVal);
+  playBar.appendChild(speedWrap);
+  secBody.insertBefore(playBar,panel);
+
+  const allSliders=[];
 
   const filters=[
     {name:'Average Filter',param:{id:'avgK',label:'Kernel n',min:1,max:41,step:2,val:1},
@@ -625,6 +702,8 @@ function buildFiltering(srcData,W,H){
     card.appendChild(rowDiv);
     panel.appendChild(card);
 
+    allSliders.push({slider:inp});
+
     let pending=false;
     function update(){
       if(pending)return;pending=true;
@@ -639,6 +718,8 @@ function buildFiltering(srcData,W,H){
     inp.addEventListener('input',update);
     update();
   });
+
+  createAnimator(allSliders, speedSlider, playBtn, '▶ Play All Filters');
 }
 
 function downsample(srcData,W,H,f){
