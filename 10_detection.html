@@ -1217,30 +1217,29 @@
     // INIT ALL
     // ============================================================
     function createSliderAnimator(slider, btn, speedSlider, onUpdate) {
-      let playing = false, progress = 0, direction = 1, lastTime = 0;
-      function tick(time) {
+      let playing = false, progress = 0, direction = 1;
+      function step() {
         if (!playing) return;
-        if (!lastTime) lastTime = time;
-        const dt = (time - lastTime) / 1000;
-        lastTime = time;
         const speed = speedSlider ? parseFloat(speedSlider.value) : 1;
-        progress += dt * 0.3 * speed * direction;
+        progress += 0.015 * speed * direction;
         if (progress >= 1) { progress = 1; direction = -1; }
         if (progress <= 0) { progress = 0; direction = 1; }
         const min = parseFloat(slider.min), max = parseFloat(slider.max);
-        const step = parseFloat(slider.step) || 1;
+        const stp = parseFloat(slider.step) || 1;
         let val = min + progress * (max - min);
-        val = Math.round(val / step) * step;
+        val = Math.round(val / stp) * stp;
         slider.value = val;
+        const t0 = performance.now();
         slider.dispatchEvent(new Event('input'));
         if (onUpdate) onUpdate(val);
-        requestAnimationFrame(tick);
+        const elapsed = performance.now() - t0;
+        setTimeout(() => requestAnimationFrame(step), Math.max(16, elapsed));
       }
       btn.addEventListener('click', () => {
         playing = !playing;
         btn.textContent = playing ? '⏸ Pause' : '▶ Sweep';
         btn.classList.toggle('playing', playing);
-        if (playing) { lastTime = 0; requestAnimationFrame(tick); }
+        if (playing) requestAnimationFrame(step);
       });
     }
 
