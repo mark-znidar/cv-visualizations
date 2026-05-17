@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 – Fourier Transform</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --accent2: #53a8b6;
+  --text: #e0e0e0;
+  --text-dim: #9a9ab0;
+  --border: #2a2a4a;
+  --radius: 8px;
+}
+[data-theme="light"] {
+  --bg: #f4f5f9;
+  --surface: #ffffff;
+  --surface2: #e8eaf2;
+  --accent: #d63050;
+  --accent2: #2e8090;
+  --text: #1a1d2e;
+  --text-dim: #5c6078;
+  --border: #d5d7e2;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.back-link:hover { opacity: 1; }
+h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { color: var(--text-dim); margin-bottom: 30px; font-size: 1rem; }
+
+/* Collapsible sections */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+.section-header:hover { background: rgba(255,255,255,0.03); }
+.section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-header .num {
+  background: var(--accent);
+  color: #fff;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.section-header .arrow {
+  transition: transform 0.3s;
+  font-size: 1.2rem;
+  color: var(--text-dim);
+}
+.section.collapsed .arrow { transform: rotate(-90deg); }
+.section-body {
+  padding: 0 20px 20px;
+  transition: max-height 0.4s ease;
+}
+.section.collapsed .section-body { display: none; }
+
+.desc {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  max-width: 800px;
+}
+.vis-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-start;
+}
+.vis-item {
+  text-align: center;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 8px;
+}
+.vis-item canvas { display: block; border-radius: 4px; }
+.vis-item .label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.vis-pair {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.vis-pair .vis-item { flex: 0 0 auto; }
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+}
+.controls label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.controls select, .controls input[type="range"] {
+  accent-color: var(--accent);
+}
+.controls select {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+.controls .val {
+  min-width: 36px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--accent2);
+  font-weight: 600;
+}
+
+/* Animation controls */
+.anim-container {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.anim-box {
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+.anim-box canvas { border-radius: 4px; }
+.anim-box .label { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+
+.grid-3x8 {
+  display: grid;
+  grid-template-columns: 30px repeat(8, 1fr);
+  gap: 4px;
+  max-width: 940px;
+  margin: 0 auto;
+  align-items: center;
+}
+.grid-3x8 canvas { width: 100%; aspect-ratio: 1; border-radius: 3px; }
+.grid-3x8 .row-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+}
+.grid-header {
+  display: grid;
+  grid-template-columns: 30px repeat(8, 1fr);
+  gap: 4px;
+  max-width: 940px;
+  margin: 0 auto 4px;
+}
+.grid-header span {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: opacity 0.2s;
+}
+.btn:hover { opacity: 0.85; }
+
+.matrix-row {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.matrix-item { text-align: center; }
+.matrix-item canvas { border-radius: 4px; }
+.matrix-item .label { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+canvas.nn { image-rendering: pixelated; }
+.loading-msg {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+
+<a href="index.html" class="back-link">← Back to Index</a>
+<h1>03 – Fourier Transform</h1>
+<p class="subtitle">Frequency analysis, aliasing, and filtering in the spatial and frequency domains</p>
+
+<!-- Section 1: Checkerboard Aliasing -->
+<div class="section" id="sec1">
+  <div class="section-header" onclick="toggleSection('sec1')">
+    <h2><span class="num">1</span> Checkerboard Aliasing</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">A checkerboard pattern with varying frequency is downsampled by factors of 2–128 and upscaled back to 512×512 using nearest-neighbor interpolation. Notice how aliasing artifacts appear as the sampling rate drops below the Nyquist frequency.</p>
+    <div class="vis-row" id="checker-row"></div>
+  </div>
+</div>
+
+<!-- Section 2: 1D DFT -->
+<div class="section" id="sec2">
+  <div class="section-header" onclick="toggleSection('sec2')">
+    <h2><span class="num">2</span> 1D Discrete Fourier Transform</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">A discrete sin(x) signal with 16 samples, its DFT amplitude spectrum, the signal visualized as a pixel row, and the DFT matrix (real and imaginary parts).</p>
+    <div class="vis-pair" id="dft1d-plots"></div>
+    <div class="vis-pair" style="margin-top:16px" id="dft1d-pixel"></div>
+    <div class="matrix-row" id="dft1d-matrix"></div>
+  </div>
+</div>
+
+<!-- Section 3: 2D Basis Functions -->
+<div class="section" id="sec3">
+  <div class="section-header" onclick="toggleSection('sec3')">
+    <h2><span class="num">3</span> 2D Fourier Basis Functions</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">Each cell shows cos(2π(ux + vy)/N) for u = 0,1,2 (rows) and v = 0…7 (columns). These are the real-valued basis functions that compose any 2D signal.</p>
+    <div class="grid-header" id="basis-header"></div>
+    <div class="grid-3x8" id="basis-grid"></div>
+  </div>
+</div>
+
+<!-- Section 4: FFT on Images -->
+<div class="section" id="sec4">
+  <div class="section-header" onclick="toggleSection('sec4')">
+    <h2><span class="num">4</span> FFT on Images</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">Load an image, convert to grayscale, and compute its 2D FFT. Displays the log-magnitude spectrum (centered) and phase spectrum.</p>
+    <div class="controls">
+      <label>Image:
+        <select id="img-select" onchange="loadFFTImage()">
+          <option value="data/image.jpg">image.jpg</option>
+          <option value="data/image_windows.jpg">image_windows.jpg</option>
+          <option value="data/image_bridge.jpg">image_bridge.jpg</option>
+          <option value="data/image_branch.jpg">image_branch.jpg</option>
+          <option value="data/image_lanterns.jpg">image_lanterns.jpg</option>
+        </select>
+      </label>
+    </div>
+    <div class="vis-row" id="fft-image-row">
+      <div class="vis-item"><canvas id="fft-orig" width="300" height="300"></canvas><div class="label">Original (Grayscale)</div></div>
+      <div class="vis-item"><canvas id="fft-mag" width="300" height="300"></canvas><div class="label">Log Magnitude (centered)</div></div>
+      <div class="vis-item"><canvas id="fft-phase" width="300" height="300"></canvas><div class="label">Phase</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5: FFT Animations -->
+<div class="section" id="sec5">
+  <div class="section-header" onclick="toggleSection('sec5')">
+    <h2><span class="num">5</span> FFT Animations</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">Observe how the FFT magnitude spectrum changes in real-time as a white rectangle is zoomed, rotated, or translated.</p>
+    <div class="controls">
+      <button class="btn" id="anim-btn" onclick="toggleAnimations()">Start Animations</button>
+      <label>Speed: <input type="range" id="anim-speed" min="0.2" max="3" step="0.1" value="1"><span class="val" id="anim-speed-val">1.0×</span></label>
+    </div>
+    <div class="anim-container">
+      <div class="anim-box">
+        <div style="display:flex;gap:8px;">
+          <div><canvas id="anim-zoom-src" width="200" height="200"></canvas><div class="label">Zoom – Spatial</div></div>
+          <div><canvas id="anim-zoom-fft" width="200" height="200"></canvas><div class="label">Zoom – FFT Magnitude</div></div>
+        </div>
+      </div>
+      <div class="anim-box">
+        <div style="display:flex;gap:8px;">
+          <div><canvas id="anim-rot-src" width="200" height="200"></canvas><div class="label">Rotation – Spatial</div></div>
+          <div><canvas id="anim-rot-fft" width="200" height="200"></canvas><div class="label">Rotation – FFT Magnitude</div></div>
+        </div>
+      </div>
+      <div class="anim-box">
+        <div style="display:flex;gap:8px;">
+          <div><canvas id="anim-trans-src" width="200" height="200"></canvas><div class="label">Translation – Spatial</div></div>
+          <div><canvas id="anim-trans-fft" width="200" height="200"></canvas><div class="label">Translation – FFT Magnitude</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6: Frequency Domain Filtering -->
+<div class="section" id="sec6">
+  <div class="section-header" onclick="toggleSection('sec6')">
+    <h2><span class="num">6</span> Frequency Domain Filtering</h2>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="desc">Apply ideal low-pass and high-pass filters in the frequency domain. The cutoff radius controls which frequencies are kept or removed.</p>
+    <div class="controls">
+      <label>Image:
+        <select id="filter-img-select" onchange="loadFilterImage()">
+          <option value="data/image.jpg">image.jpg</option>
+          <option value="data/image_windows.jpg">image_windows.jpg</option>
+          <option value="data/image_bridge.jpg">image_bridge.jpg</option>
+          <option value="data/image_branch.jpg">image_branch.jpg</option>
+          <option value="data/image_lanterns.jpg">image_lanterns.jpg</option>
+        </select>
+      </label>
+      <label>Filter:
+        <select id="filter-type" onchange="applyFilter()">
+          <option value="low">Low-pass</option>
+          <option value="high">High-pass</option>
+        </select>
+      </label>
+      <label>Cutoff radius: <input type="range" id="filter-cutoff" min="1" max="128" value="30" oninput="updateFilterVal(); applyFilter()"><span class="val" id="filter-cutoff-val">30</span></label>
+    </div>
+    <div class="vis-row" id="filter-row">
+      <div class="vis-item"><canvas id="filt-orig" width="256" height="256"></canvas><div class="label">Original</div></div>
+      <div class="vis-item"><canvas id="filt-mag" width="256" height="256"></canvas><div class="label">FFT Magnitude</div></div>
+      <div class="vis-item"><canvas id="filt-mask" width="256" height="256"></canvas><div class="label">Filter Mask</div></div>
+      <div class="vis-item"><canvas id="filt-mag-f" width="256" height="256"></canvas><div class="label">Filtered FFT Magnitude</div></div>
+      <div class="vis-item"><canvas id="filt-result" width="256" height="256"></canvas><div class="label">Filtered Image</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Utility: Collapsible sections =====
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ===== FFT Implementation =====
+function fft1d(re, im, invert) {
+  const n = re.length;
+  if (n === 1) return;
+  // bit-reversal permutation
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = 2 * Math.PI / len * (invert ? -1 : 1);
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let j = 0; j < len / 2; j++) {
+        const uRe = re[i + j], uIm = im[i + j];
+        const vRe = re[i + j + len / 2] * curRe - im[i + j + len / 2] * curIm;
+        const vIm = re[i + j + len / 2] * curIm + im[i + j + len / 2] * curRe;
+        re[i + j] = uRe + vRe;
+        im[i + j] = uIm + vIm;
+        re[i + j + len / 2] = uRe - vRe;
+        im[i + j + len / 2] = uIm - vIm;
+        const newCurRe = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe;
+        curRe = newCurRe;
+      }
+    }
+  }
+  if (invert) {
+    for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+  }
+}
+
+function nextPow2(n) { let p = 1; while (p < n) p <<= 1; return p; }
+
+function fft2d(reArr, imArr, rows, cols, invert) {
+  const pCols = nextPow2(cols);
+  const pRows = nextPow2(rows);
+  const N = Math.max(pCols, pRows);
+  // Pad to square power-of-2
+  const re = new Float64Array(N * N);
+  const im = new Float64Array(N * N);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      re[r * N + c] = reArr[r * cols + c];
+      im[r * N + c] = imArr[r * cols + c];
+    }
+  // rows
+  const rowRe = new Float64Array(N), rowIm = new Float64Array(N);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) { rowRe[c] = re[r * N + c]; rowIm[c] = im[r * N + c]; }
+    fft1d(rowRe, rowIm, invert);
+    for (let c = 0; c < N; c++) { re[r * N + c] = rowRe[c]; im[r * N + c] = rowIm[c]; }
+  }
+  // cols
+  const colRe = new Float64Array(N), colIm = new Float64Array(N);
+  for (let c = 0; c < N; c++) {
+    for (let r = 0; r < N; r++) { colRe[r] = re[r * N + c]; colIm[r] = im[r * N + c]; }
+    fft1d(colRe, colIm, invert);
+    for (let r = 0; r < N; r++) { re[r * N + c] = colRe[r]; im[r * N + c] = colIm[r]; }
+  }
+  return { re, im, N };
+}
+
+function fftshift(data, N) {
+  const out = new Float64Array(N * N);
+  const h = N >> 1;
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++)
+      out[((r + h) % N) * N + (c + h) % N] = data[r * N + c];
+  return out;
+}
+
+function logMagnitude(re, im, N) {
+  const mag = new Float64Array(N * N);
+  for (let i = 0; i < N * N; i++) mag[i] = Math.log(1 + Math.sqrt(re[i] * re[i] + im[i] * im[i]));
+  return mag;
+}
+
+function phase(re, im, N) {
+  const ph = new Float64Array(N * N);
+  for (let i = 0; i < N * N; i++) ph[i] = Math.atan2(im[i], re[i]);
+  return ph;
+}
+
+function phaseToCanvas(data, N, canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const imgData = ctx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sr = Math.floor(y * N / h), sc = Math.floor(x * N / w);
+      const v = (data[sr * N + sc] + Math.PI) / (2 * Math.PI);
+      const hue = v * 360;
+      const c2 = 1 - Math.abs((hue / 60) % 2 - 1);
+      let r = 0, g = 0, b = 0;
+      if (hue < 60) { r = 1; g = c2; }
+      else if (hue < 120) { r = c2; g = 1; }
+      else if (hue < 180) { g = 1; b = c2; }
+      else if (hue < 240) { g = c2; b = 1; }
+      else if (hue < 300) { r = c2; b = 1; }
+      else { r = 1; b = c2; }
+      const idx = (y * w + x) * 4;
+      imgData.data[idx] = Math.round(r * 255);
+      imgData.data[idx + 1] = Math.round(g * 255);
+      imgData.data[idx + 2] = Math.round(b * 255);
+      imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function normalizeToCanvas(data, N, canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < N * N; i++) { if (data[i] < mn) mn = data[i]; if (data[i] > mx) mx = data[i]; }
+  const range = mx - mn || 1;
+  const imgData = ctx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sr = Math.floor(y * N / h), sc = Math.floor(x * N / w);
+      const v = Math.round(((data[sr * N + sc] - mn) / range) * 255);
+      const idx = (y * w + x) * 4;
+      imgData.data[idx] = v; imgData.data[idx + 1] = v; imgData.data[idx + 2] = v; imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function grayscaleToCanvas(gray, rows, cols, canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const imgData = ctx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sr = Math.floor(y * rows / h), sc = Math.floor(x * cols / w);
+      const v = Math.round(Math.max(0, Math.min(255, gray[sr * cols + sc])));
+      const idx = (y * w + x) * 4;
+      imgData.data[idx] = v; imgData.data[idx + 1] = v; imgData.data[idx + 2] = v; imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ===== Section 1: Checkerboard =====
+(function initCheckerboard() {
+  const S = 512;
+  const pattern = new Uint8Array(S * S);
+  for (let y = 0; y < S; y++) {
+    const freq = Math.round(Math.sqrt((S - y) * 2));
+    for (let x = 0; x < S; x++) {
+      const cx = Math.floor(x / Math.max(1, Math.round(S / freq))) % 2;
+      const cy = Math.floor(y / Math.max(1, Math.round(S / freq))) % 2;
+      pattern[y * S + x] = (cx ^ cy) ? 255 : 0;
+    }
+  }
+  const factors = [1, 2, 4, 8, 16, 32, 64, 128];
+  const row = document.getElementById('checker-row');
+  factors.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'vis-item';
+    const c = document.createElement('canvas');
+    const size = Math.min(140, Math.max(80, 512 / Math.sqrt(factors.length)));
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    const imgData = ctx.createImageData(size, size);
+    const ds = Math.floor(S / f);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const sy = Math.floor(y * ds / size) * f;
+        const sx = Math.floor(x * ds / size) * f;
+        const v = pattern[Math.min(sy, S - 1) * S + Math.min(sx, S - 1)];
+        const idx = (y * size + x) * 4;
+        imgData.data[idx] = v; imgData.data[idx + 1] = v; imgData.data[idx + 2] = v; imgData.data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    item.appendChild(c);
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = f === 1 ? 'Original' : `↓${f}× (${ds}→512)`;
+    item.appendChild(label);
+    row.appendChild(item);
+  });
+})();
+
+// ===== Section 2: 1D DFT =====
+(function init1DDFT() {
+  const N = 16;
+  const signal = new Float64Array(N);
+  for (let i = 0; i < N; i++) signal[i] = Math.sin(2 * Math.PI * i / N);
+
+  // DFT
+  const dftRe = new Float64Array(N), dftIm = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    for (let n = 0; n < N; n++) {
+      const ang = -2 * Math.PI * k * n / N;
+      dftRe[k] += signal[n] * Math.cos(ang);
+      dftIm[k] += signal[n] * Math.sin(ang);
+    }
+  }
+  const amp = new Float64Array(N);
+  for (let k = 0; k < N; k++) amp[k] = Math.sqrt(dftRe[k] * dftRe[k] + dftIm[k] * dftIm[k]);
+
+  const LABEL_COLOR = '#9a9ab0';
+
+  function drawStem(canvas, data, title, color) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const pad = 40;
+    ctx.fillStyle = '#0d0d1a';
+    ctx.fillRect(0, 0, w, h);
+    let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < data.length; i++) { mn = Math.min(mn, data[i]); mx = Math.max(mx, data[i]); }
+    const range = mx - mn || 1;
+    const plotW = w - 2 * pad, plotH = h - 2 * pad;
+    const zeroY = pad + plotH * (mx / range);
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h - pad); ctx.lineTo(w - pad, h - pad); ctx.stroke();
+    ctx.strokeStyle = '#333';
+    ctx.beginPath(); ctx.moveTo(pad, zeroY); ctx.lineTo(w - pad, zeroY); ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    for (let i = 0; i < data.length; i++) {
+      const x = pad + (i + 0.5) * plotW / data.length;
+      const y = pad + plotH * (1 - (data[i] - mn) / range);
+      ctx.beginPath(); ctx.moveTo(x, zeroY); ctx.lineTo(x, y); ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.fillStyle = LABEL_COLOR;
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, w / 2, 18);
+    ctx.fillStyle = '#666';
+    ctx.font = '10px sans-serif';
+    for (let i = 0; i < data.length; i += 2) {
+      const x = pad + (i + 0.5) * plotW / data.length;
+      ctx.fillText(i, x, h - pad + 14);
+    }
+  }
+
+  // Signal stem plot
+  const plots = document.getElementById('dft1d-plots');
+  const c1 = document.createElement('canvas'); c1.width = 360; c1.height = 220;
+  const c2 = document.createElement('canvas'); c2.width = 360; c2.height = 220;
+  drawStem(c1, signal, 'sin(x) – 16 samples', '#53a8b6');
+  drawStem(c2, amp, 'DFT Amplitude |X[k]|', '#e94560');
+  const d1 = document.createElement('div'); d1.className = 'vis-item'; d1.appendChild(c1);
+  const d2 = document.createElement('div'); d2.className = 'vis-item'; d2.appendChild(c2);
+  plots.appendChild(d1); plots.appendChild(d2);
+
+  // Pixel row
+  const pixDiv = document.getElementById('dft1d-pixel');
+  const cp = document.createElement('canvas'); cp.width = 320; cp.height = 40;
+  const ctxP = cp.getContext('2d');
+  ctxP.fillStyle = '#0d0d1a'; ctxP.fillRect(0, 0, 320, 40);
+  for (let i = 0; i < N; i++) {
+    const v = Math.round(((signal[i] + 1) / 2) * 255);
+    ctxP.fillStyle = `rgb(${v},${v},${v})`;
+    ctxP.fillRect(i * 20, 5, 18, 30);
+  }
+  const dpx = document.createElement('div'); dpx.className = 'vis-item';
+  dpx.appendChild(cp);
+  const lbl = document.createElement('div'); lbl.className = 'label'; lbl.textContent = 'Signal as pixel row';
+  dpx.appendChild(lbl);
+  pixDiv.appendChild(dpx);
+
+  // DFT matrix
+  const matDiv = document.getElementById('dft1d-matrix');
+  function drawMatrix(isReal) {
+    const c = document.createElement('canvas'); c.width = 200; c.height = 200;
+    const ctx = c.getContext('2d');
+    const imgData = ctx.createImageData(200, 200);
+    const cellW = 200 / N, cellH = 200 / N;
+    for (let k = 0; k < N; k++) {
+      for (let n = 0; n < N; n++) {
+        const ang = 2 * Math.PI * k * n / N;
+        const val = isReal ? Math.cos(ang) : Math.sin(ang);
+        const v = Math.round(((val + 1) / 2) * 255);
+        for (let dy = 0; dy < Math.ceil(cellH); dy++) {
+          for (let dx = 0; dx < Math.ceil(cellW); dx++) {
+            const px = Math.floor(n * cellW) + dx;
+            const py = Math.floor(k * cellH) + dy;
+            if (px < 200 && py < 200) {
+              const idx = (py * 200 + px) * 4;
+              imgData.data[idx] = v; imgData.data[idx + 1] = v; imgData.data[idx + 2] = v; imgData.data[idx + 3] = 255;
+            }
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    const d = document.createElement('div'); d.className = 'matrix-item';
+    d.appendChild(c);
+    const l = document.createElement('div'); l.className = 'label';
+    l.textContent = isReal ? 'DFT Matrix – Real (cos)' : 'DFT Matrix – Imaginary (sin)';
+    d.appendChild(l);
+    matDiv.appendChild(d);
+  }
+  drawMatrix(true);
+  drawMatrix(false);
+})();
+
+// ===== Section 3: 2D Basis Functions =====
+(function initBasis() {
+  const grid = document.getElementById('basis-grid');
+  const header = document.getElementById('basis-header');
+  const S = 128;
+  // Column headers
+  const spacer = document.createElement('span');
+  header.appendChild(spacer);
+  for (let v = 0; v < 8; v++) {
+    const sp = document.createElement('span');
+    sp.textContent = `v=${v}`;
+    header.appendChild(sp);
+  }
+  for (let u = 0; u < 3; u++) {
+    const rl = document.createElement('div');
+    rl.className = 'row-label';
+    rl.textContent = `u=${u}`;
+    grid.appendChild(rl);
+    for (let v = 0; v < 8; v++) {
+      const c = document.createElement('canvas');
+      c.width = S; c.height = S;
+      c.title = `u=${u}, v=${v}`;
+      const ctx = c.getContext('2d');
+      const imgData = ctx.createImageData(S, S);
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const val = Math.cos(2 * Math.PI * (u * y / S + v * x / S));
+          const pv = Math.round(((val + 1) / 2) * 255);
+          const idx = (y * S + x) * 4;
+          imgData.data[idx] = pv; imgData.data[idx + 1] = pv; imgData.data[idx + 2] = pv; imgData.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      grid.appendChild(c);
+    }
+  }
+})();
+
+// ===== Section 4: FFT on Images =====
+let currentGray = null, currentN = 0;
+
+const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+
+function loadImageToGray(src, size, cb) {
+  const img = new Image();
+  if(location.protocol!=='file:')img.crossOrigin='anonymous';
+  const fn=src.split('/').pop();
+  img.onerror=()=>{if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub:',fn);img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}};
+  img.onload = function () {
+    const tc = document.createElement('canvas');
+    tc.width = size; tc.height = size;
+    const tctx = tc.getContext('2d');
+    tctx.drawImage(img, 0, 0, size, size);
+    const d = tctx.getImageData(0, 0, size, size);
+    const gray = new Float64Array(size * size);
+    for (let i = 0; i < size * size; i++) {
+      gray[i] = 0.299 * d.data[i * 4] + 0.587 * d.data[i * 4 + 1] + 0.114 * d.data[i * 4 + 2];
+    }
+    cb(gray, size);
+  };
+  img.onerror = function () {
+    const gray = new Float64Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+        gray[y * size + x] = ((x ^ y) & 1) * 255;
+    cb(gray, size);
+  };
+  img.src = src;
+}
+
+function computeAndDisplayFFT(gray, size, magCanvas, phaseCanvas) {
+  const re = new Float64Array(gray);
+  const im = new Float64Array(size * size);
+  const result = fft2d(re, im, size, size, false);
+  const N = result.N;
+  const shiftRe = fftshift(result.re, N);
+  const shiftIm = fftshift(result.im, N);
+  const mag = logMagnitude(shiftRe, shiftIm, N);
+  const ph = phase(shiftRe, shiftIm, N);
+  normalizeToCanvas(mag, N, magCanvas);
+  phaseToCanvas(ph, N, phaseCanvas);
+  return result;
+}
+
+function loadFFTImage() {
+  const src = document.getElementById('img-select').value;
+  const SIZE = 256;
+  loadImageToGray(src, SIZE, function (gray, size) {
+    currentGray = gray;
+    currentN = size;
+    grayscaleToCanvas(gray, size, size, document.getElementById('fft-orig'));
+    computeAndDisplayFFT(gray, size, document.getElementById('fft-mag'), document.getElementById('fft-phase'));
+  });
+}
+loadFFTImage();
+
+// ===== Section 5: FFT Animations =====
+let animRunning = false, animRAF = null;
+
+function toggleAnimations() {
+  animRunning = !animRunning;
+  document.getElementById('anim-btn').textContent = animRunning ? 'Stop Animations' : 'Start Animations';
+  if (animRunning) animRAF = requestAnimationFrame(animLoop);
+  else if (animRAF) cancelAnimationFrame(animRAF);
+}
+
+document.getElementById('anim-speed').addEventListener('input', function () {
+  document.getElementById('anim-speed-val').textContent = parseFloat(this.value).toFixed(1) + '×';
+});
+
+function drawRectAndFFT(srcCanvas, fftCanvas, drawFn) {
+  const S = 128;
+  const sCtx = srcCanvas.getContext('2d');
+  sCtx.fillStyle = '#000';
+  sCtx.fillRect(0, 0, 200, 200);
+  sCtx.save();
+  drawFn(sCtx, 200);
+  sCtx.restore();
+  // Extract grayscale
+  const id = sCtx.getImageData(0, 0, 200, 200);
+  const gray = new Float64Array(S * S);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const sy = Math.floor(y * 200 / S), sx = Math.floor(x * 200 / S);
+      gray[y * S + x] = id.data[(sy * 200 + sx) * 4];
+    }
+  const re = new Float64Array(gray);
+  const im = new Float64Array(S * S);
+  const r = fft2d(re, im, S, S, false);
+  const N = r.N;
+  const shRe = fftshift(r.re, N);
+  const shIm = fftshift(r.im, N);
+  const mag = logMagnitude(shRe, shIm, N);
+  normalizeToCanvas(mag, N, fftCanvas);
+}
+
+let lastAnimTime = 0;
+const ANIM_INTERVAL = 50;
+
+function animLoop(timestamp) {
+  if (!animRunning) return;
+  if (timestamp - lastAnimTime < ANIM_INTERVAL) {
+    animRAF = requestAnimationFrame(animLoop);
+    return;
+  }
+  lastAnimTime = timestamp;
+  const t = Date.now() / 1000 * parseFloat(document.getElementById('anim-speed').value);
+
+  drawRectAndFFT(document.getElementById('anim-zoom-src'), document.getElementById('anim-zoom-fft'), (ctx, S) => {
+    const scale = 0.1 + 0.4 * (Math.sin(t * 0.8) * 0.5 + 0.5);
+    const w = S * scale, h = S * scale * 0.6;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(S / 2 - w / 2, S / 2 - h / 2, w, h);
+  });
+
+  drawRectAndFFT(document.getElementById('anim-rot-src'), document.getElementById('anim-rot-fft'), (ctx, S) => {
+    ctx.translate(S / 2, S / 2);
+    ctx.rotate(t * 0.5);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-30, -15, 60, 30);
+  });
+
+  drawRectAndFFT(document.getElementById('anim-trans-src'), document.getElementById('anim-trans-fft'), (ctx, S) => {
+    const cx = S / 2 + 40 * Math.cos(t * 0.7);
+    const cy = S / 2 + 40 * Math.sin(t * 0.7);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - 20, cy - 12, 40, 24);
+  });
+
+  animRAF = requestAnimationFrame(animLoop);
+}
+
+// ===== Section 6: Filtering =====
+let filterGray = null, filterSize = 0, filterFFTResult = null;
+
+function updateFilterVal() {
+  document.getElementById('filter-cutoff-val').textContent = document.getElementById('filter-cutoff').value;
+}
+
+function loadFilterImage() {
+  const src = document.getElementById('filter-img-select').value;
+  const SIZE = 256;
+  loadImageToGray(src, SIZE, function (gray, size) {
+    filterGray = gray;
+    filterSize = size;
+    grayscaleToCanvas(gray, size, size, document.getElementById('filt-orig'));
+
+    const re = new Float64Array(gray);
+    const im = new Float64Array(size * size);
+    filterFFTResult = fft2d(re, im, size, size, false);
+    const N = filterFFTResult.N;
+    const shRe = fftshift(filterFFTResult.re, N);
+    const shIm = fftshift(filterFFTResult.im, N);
+    const mag = logMagnitude(shRe, shIm, N);
+    normalizeToCanvas(mag, N, document.getElementById('filt-mag'));
+    applyFilter();
+  });
+}
+
+function applyFilter() {
+  if (!filterFFTResult) return;
+  const N = filterFFTResult.N;
+  const cutoff = parseInt(document.getElementById('filter-cutoff').value);
+  const type = document.getElementById('filter-type').value;
+  const half = N >> 1;
+
+  // Create mask
+  const mask = new Float64Array(N * N);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const dist = Math.sqrt((r - half) * (r - half) + (c - half) * (c - half));
+      if (type === 'low') mask[r * N + c] = dist <= cutoff ? 1 : 0;
+      else mask[r * N + c] = dist > cutoff ? 1 : 0;
+    }
+  }
+
+  // Draw mask
+  const maskCanvas = document.getElementById('filt-mask');
+  const mCtx = maskCanvas.getContext('2d');
+  const mImg = mCtx.createImageData(256, 256);
+  for (let y = 0; y < 256; y++) {
+    for (let x = 0; x < 256; x++) {
+      const sr = Math.floor(y * N / 256), sc = Math.floor(x * N / 256);
+      const v = Math.round(mask[sr * N + sc] * 255);
+      const idx = (y * 256 + x) * 4;
+      mImg.data[idx] = v; mImg.data[idx + 1] = v; mImg.data[idx + 2] = v; mImg.data[idx + 3] = 255;
+    }
+  }
+  mCtx.putImageData(mImg, 0, 0);
+
+  // Apply mask in shifted frequency domain
+  const shRe = fftshift(filterFFTResult.re, N);
+  const shIm = fftshift(filterFFTResult.im, N);
+  const filtShRe = new Float64Array(N * N);
+  const filtShIm = new Float64Array(N * N);
+  for (let i = 0; i < N * N; i++) {
+    filtShRe[i] = shRe[i] * mask[i];
+    filtShIm[i] = shIm[i] * mask[i];
+  }
+
+  // Show filtered magnitude
+  const filtMag = logMagnitude(filtShRe, filtShIm, N);
+  normalizeToCanvas(filtMag, N, document.getElementById('filt-mag-f'));
+
+  // Unshift and inverse FFT
+  const unshRe = fftshift(filtShRe, N);
+  const unshIm = fftshift(filtShIm, N);
+  const invRe = new Float64Array(unshRe);
+  const invIm = new Float64Array(unshIm);
+  // Inverse via rows then cols
+  const rowBuf = new Float64Array(N), rowImBuf = new Float64Array(N);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) { rowBuf[c] = invRe[r * N + c]; rowImBuf[c] = invIm[r * N + c]; }
+    fft1d(rowBuf, rowImBuf, true);
+    for (let c = 0; c < N; c++) { invRe[r * N + c] = rowBuf[c]; invIm[r * N + c] = rowImBuf[c]; }
+  }
+  const colBuf = new Float64Array(N), colImBuf = new Float64Array(N);
+  for (let c = 0; c < N; c++) {
+    for (let r = 0; r < N; r++) { colBuf[r] = invRe[r * N + c]; colImBuf[r] = invIm[r * N + c]; }
+    fft1d(colBuf, colImBuf, true);
+    for (let r = 0; r < N; r++) { invRe[r * N + c] = colBuf[r]; invIm[r * N + c] = colImBuf[r]; }
+  }
+
+  // Display result
+  const result = new Float64Array(filterSize * filterSize);
+  for (let r = 0; r < filterSize; r++)
+    for (let c = 0; c < filterSize; c++)
+      result[r * filterSize + c] = Math.max(0, Math.min(255, invRe[r * N + c]));
+  grayscaleToCanvas(result, filterSize, filterSize, document.getElementById('filt-result'));
+}
+
+loadFilterImage();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

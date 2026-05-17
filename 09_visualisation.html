@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L9 – CNN Visualization Techniques</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#232733;--border:#2e3345;--text:#e2e4eb;--text2:#9ca0b0;--accent:#6c8aff;--accent2:#38bdf8;--green:#4ade80;--red:#f87171;--orange:#fbbf24;--font-mono:'JetBrains Mono','Fira Code',monospace;--radius:10px}
+[data-theme="light"]{--bg:#f5f6fa;--surface:#ffffff;--surface2:#ecedf3;--border:#d5d7e2;--text:#1a1d2e;--text2:#5c6078;--accent:#4a6ae5;--accent2:#1890d0;--green:#18a770;--red:#dc3545;--orange:#d49030}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:0 0 60px}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.back-link{display:inline-block;padding:16px 24px;font-size:.95rem;opacity:.8;transition:opacity .2s}.back-link:hover{opacity:1}
+.hero{text-align:center;padding:48px 24px 32px;background:linear-gradient(180deg,#161926 0%,var(--bg) 100%)}
+.hero h1{font-size:2.2rem;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.hero p{color:var(--text2);font-size:1.05rem;max-width:640px;margin:0 auto}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+details{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+summary{cursor:pointer;padding:20px 24px;font-size:1.15rem;font-weight:600;list-style:none;display:flex;align-items:center;gap:12px;user-select:none;transition:background .15s}
+summary:hover{background:var(--surface2)}
+summary::before{content:'▸';font-size:1.1rem;transition:transform .2s;color:var(--accent)}
+details[open]>summary::before{transform:rotate(90deg)}
+summary .badge{font-size:.7rem;padding:2px 8px;border-radius:20px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.badge-vis{background:rgba(108,138,255,.15);color:var(--accent)}
+.badge-int{background:rgba(56,189,248,.15);color:var(--accent2)}
+.badge-concept{background:rgba(74,222,128,.15);color:var(--green)}
+.section-body{padding:24px;border-top:1px solid var(--border)}
+.desc{color:var(--text2);font-size:.92rem;margin-bottom:16px;max-width:700px}
+canvas{display:block;border-radius:6px;image-rendering:pixelated}
+.canvas-wrap{display:flex;justify-content:center;overflow:auto;padding:8px 0}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0}
+.controls label{font-size:.85rem;color:var(--text2);display:flex;align-items:center;gap:6px}
+.controls input[type=range]{width:140px;accent-color:var(--accent)}
+.controls select,.controls button{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.85rem;cursor:pointer}
+.controls button{background:var(--accent);color:#fff;border:none;font-weight:600;transition:filter .15s}.controls button:hover{filter:brightness(1.15)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:8px 0;font-size:.8rem}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-swatch{width:12px;height:12px;border-radius:3px}
+.chart-container{position:relative}
+.tooltip{position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:.8rem;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;white-space:nowrap}
+.cols{display:grid;gap:20px}
+.cols-2{grid-template-columns:1fr 1fr}
+@media(max-width:800px){.cols-2{grid-template-columns:1fr}}
+.info-box{background:var(--surface2);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:14px 18px;margin:12px 0;font-size:.88rem;color:var(--text2)}
+.bar-chart{margin:12px 0}
+.bar-row{display:flex;align-items:center;gap:10px;margin:6px 0}
+.bar-label{width:160px;text-align:right;font-size:.85rem;color:var(--text2);flex-shrink:0}
+.bar{height:28px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .6s ease;position:relative}
+.bar span{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:.78rem;font-weight:600;color:#fff}
+.metric-cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.metric-card{background:var(--surface2);border-radius:8px;padding:14px 18px;min-width:120px}
+.metric-card .val{font-size:1.5rem;font-weight:700;color:var(--accent)}
+.metric-card .lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+<a href="index.html" class="back-link">← Back to Index</a>
+
+<div class="hero">
+  <h1>CNN Visualization Techniques</h1>
+  <p>Understanding what neural networks learn through filter visualization, embeddings, saliency maps, and input maximization.</p>
+</div>
+
+<div class="container">
+
+<!-- ===== 1. First Layer Conv Filters ===== -->
+<details open>
+  <summary><span class="badge badge-vis">Visualization</span> First Layer Weights – ResNet18 (Typical Patterns)</summary>
+  <div class="section-body">
+    <p class="desc">First-layer convolution filters in CNNs learn basic visual features: edges at various orientations, color blobs, and Gabor-like texture detectors. Below are 64 synthetic 7×7 filters replicating well-known first-layer patterns.</p>
+    <div class="canvas-wrap"><canvas id="c-layer1" width="560" height="560"></canvas></div>
+  </div>
+</details>
+
+<!-- ===== 2. Second Layer Filters ===== -->
+<details>
+  <summary><span class="badge badge-vis">Visualization</span> Second Layer Filters (3×3 grouped by channel)</summary>
+  <div class="section-body">
+    <p class="desc">Second-layer filters combine first-layer features into more complex edge and texture detectors. Each group shows filters for one input channel. The patterns are more complex, detecting corners, curves, and oriented textures.</p>
+    <div class="canvas-wrap"><canvas id="c-layer2" width="640" height="400"></canvas></div>
+  </div>
+</details>
+
+<!-- ===== 3. PCA Embedding of Class Vectors ===== -->
+<details>
+  <summary><span class="badge badge-int">Interactive</span> PCA Embedding of ImageNet Class Vectors</summary>
+  <div class="section-body">
+    <p class="desc">2D PCA projection of class embedding vectors for 30 ImageNet classes. Semantically similar classes cluster together. Scroll to zoom, drag to pan.</p>
+    <div class="canvas-wrap"><canvas id="c-pca-class" width="800" height="520"></canvas></div>
+  </div>
+</details>
+
+<!-- ===== 4. PCA & t-SNE Embeddings ===== -->
+<details>
+  <summary><span class="badge badge-int">Interactive</span> PCA & t-SNE Embeddings (CIFAR-10)</summary>
+  <div class="section-body">
+    <p class="desc">Compare PCA (linear) and t-SNE (non-linear) embeddings. PCA preserves global structure; t-SNE reveals local cluster separation. Adjust perplexity to see its effect on t-SNE clustering.</p>
+    <div class="controls">
+      <label>Perplexity: <input type="range" id="perplexity" min="5" max="50" value="30" step="1"><span id="perp-val">30</span></label>
+      <button id="btn-rerun">Re-run t-SNE</button>
+    </div>
+    <div class="cols cols-2">
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--accent)">PCA Embedding</h3>
+        <div class="canvas-wrap"><canvas id="c-pca" width="420" height="380"></canvas></div>
+      </div>
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--accent2)">t-SNE Embedding</h3>
+        <div class="canvas-wrap"><canvas id="c-tsne" width="420" height="380"></canvas></div>
+      </div>
+    </div>
+    <div class="legend" id="cifar-legend"></div>
+  </div>
+</details>
+
+<!-- ===== 5. Image Classification ===== -->
+<details>
+  <summary><span class="badge badge-int">Interactive</span> Image Classification – Top-5 Predictions</summary>
+  <div class="section-body">
+    <p class="desc">ResNet18 predictions on the input image. The model confidently predicts "Golden Retriever".</p>
+    <div class="cols cols-2">
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Input Image (224×224)</h3>
+        <canvas id="c-classify-img" width="224" height="224" style="border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Top-5 Predictions</h3>
+        <div class="bar-chart" id="pred-bars"></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- ===== 6. Occlusion Sensitivity ===== -->
+<details>
+  <summary><span class="badge badge-int">Interactive</span> Occlusion Sensitivity</summary>
+  <div class="section-body">
+    <p class="desc">Slide a black patch across the image and observe how occlusion of different regions affects the model's prediction confidence. The heatmap shows which regions are most important for classification. Drag the patch or adjust its size.</p>
+    <div class="controls">
+      <label>Patch size: <input type="range" id="occ-size" min="10" max="50" value="30" step="2"><span id="occ-size-val">30</span></label>
+      <label>Show heatmap: <input type="checkbox" id="occ-heatmap" checked></label>
+    </div>
+    <div class="cols cols-2">
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Image with Occlusion Patch</h3>
+        <canvas id="c-occ" width="224" height="224" style="cursor:crosshair;border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Sensitivity Heatmap</h3>
+        <canvas id="c-occ-heat" width="224" height="224" style="border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- ===== 7. Saliency / Gradient Map ===== -->
+<details>
+  <summary><span class="badge badge-concept">Concept</span> Gradient / Saliency Map</summary>
+  <div class="section-body">
+    <p class="desc">A saliency map highlights the pixels most relevant to the predicted class. It is computed as the absolute gradient of the class score with respect to each input pixel. Bright regions indicate where small pixel changes would most affect the classification.</p>
+    <div class="info-box">
+      <strong>How it works:</strong> Forward-pass the image → compute class score → backpropagate → take |∂score/∂pixel| → normalize to [0,1] → overlay as heatmap.
+    </div>
+    <div class="controls">
+      <label>Overlay opacity: <input type="range" id="sal-opacity" min="0" max="100" value="60" step="5"><span id="sal-opacity-val">60%</span></label>
+    </div>
+    <div class="cols cols-2">
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Original Image</h3>
+        <canvas id="c-sal-orig" width="224" height="224" style="border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Saliency Overlay</h3>
+        <canvas id="c-sal" width="224" height="224" style="border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- ===== 8. Input Maximization ===== -->
+<details>
+  <summary><span class="badge badge-concept">Concept</span> Input Maximization (Feature Visualization)</summary>
+  <div class="section-body">
+    <p class="desc">Input maximization starts from random noise and iteratively adjusts pixels via gradient ascent to maximize a target neuron's activation. A total-variation (TV) loss regularizer penalizes high-frequency noise to produce interpretable patterns.</p>
+    <div class="info-box">
+      <strong>Optimization:</strong> x ← x + lr · ∂activation/∂x − λ · ∇TV(x)<br>
+      The animation shows synthetic pattern emergence simulating this process.
+    </div>
+    <div class="controls">
+      <button id="btn-maxim-start">▶ Start Animation</button>
+      <button id="btn-maxim-reset">Reset</button>
+      <label>Speed: <input type="range" id="maxim-speed" min="1" max="10" value="5"></label>
+    </div>
+    <div class="cols cols-2">
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Optimized Image</h3>
+        <canvas id="c-maxim" width="224" height="224" style="border:1px solid var(--border);image-rendering:auto"></canvas>
+      </div>
+      <div>
+        <h3 style="font-size:.95rem;margin-bottom:8px;color:var(--text2)">Loss Curves</h3>
+        <canvas id="c-maxim-loss" width="380" height="224" style="border:1px solid var(--border)"></canvas>
+        <div class="legend" style="margin-top:8px">
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--accent)"></span>Class Score</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--red)"></span>TV Loss</span>
+        </div>
+      </div>
+    </div>
+    <div class="metric-cards" id="maxim-metrics">
+      <div class="metric-card"><div class="val" id="m-step">0</div><div class="lbl">Step</div></div>
+      <div class="metric-card"><div class="val" id="m-score">0.00</div><div class="lbl">Class Score</div></div>
+      <div class="metric-card"><div class="val" id="m-tv">0.00</div><div class="lbl">TV Loss</div></div>
+    </div>
+  </div>
+</details>
+
+</div>
+
+<script>
+const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+function loadImgFallback(src,cb){
+  const img=new Image();
+  if(location.protocol!=='file:')img.crossOrigin='anonymous';
+  const fn=src.split('/').pop();
+  img.onerror=()=>{if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub:',fn);img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}};
+  img.onload=()=>cb(img);
+  img.src=src;
+}
+// ============================================================
+// Utilities
+// ============================================================
+function seededRandom(seed){let s=seed;return()=>{s=(s*16807+0)%2147483647;return(s-1)/2147483646}}
+const rng=seededRandom(42);
+
+function hsl2rgb(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12;const a=s*Math.min(l,1-l);const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));return[f(0)*255,f(8)*255,f(4)*255]}
+
+const PALETTE=['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#42d4f4','#f032e6','#bfef45','#fabebe'];
+function hexToRgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b]}
+
+function viridis(t){
+  t=Math.max(0,Math.min(1,t));
+  const c=[[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],[33,145,140],[34,168,132],[68,191,112],[122,209,81],[189,223,38],[253,231,37]];
+  const idx=t*(c.length-1);const lo=Math.floor(idx);const hi=Math.min(lo+1,c.length-1);const f=idx-lo;
+  return[c[lo][0]+(c[hi][0]-c[lo][0])*f,c[lo][1]+(c[hi][1]-c[lo][1])*f,c[lo][2]+(c[hi][2]-c[lo][2])*f];
+}
+function inferno(t){
+  t=Math.max(0,Math.min(1,t));
+  const c=[[0,0,4],[22,11,57],[66,10,104],[106,23,110],[147,38,103],[186,54,85],[221,81,58],[243,118,27],[252,165,10],[246,215,70],[252,255,164]];
+  const idx=t*(c.length-1);const lo=Math.floor(idx);const hi=Math.min(lo+1,c.length-1);const f=idx-lo;
+  return[c[lo][0]+(c[hi][0]-c[lo][0])*f,c[lo][1]+(c[hi][1]-c[lo][1])*f,c[lo][2]+(c[hi][2]-c[lo][2])*f];
+}
+
+// ============================================================
+// 1. First Layer Filters (7x7, 64 filters, 8x8 grid)
+// ============================================================
+(function(){
+  const cv=document.getElementById('c-layer1');
+  const ctx=cv.getContext('2d');
+  const F=7,N=8,pad=2,scale=8;
+  cv.width=N*(F*scale+pad)+pad;
+  cv.height=N*(F*scale+pad)+pad;
+  ctx.fillStyle='#111';ctx.fillRect(0,0,cv.width,cv.height);
+
+  function makeFilter(type,param){
+    const f=new Float32Array(F*F*3);
+    for(let y=0;y<F;y++)for(let x=0;x<F;x++){
+      const cx=(x-3)/3,cy=(y-3)/3;
+      let r=0,g=0,b=0;
+      switch(type){
+        case'hedge':r=g=b=(cy<0?1:-1)*Math.exp(-cy*cy*2);break;
+        case'vedge':r=g=b=(cx<0?1:-1)*Math.exp(-cx*cx*2);break;
+        case'dedge1':r=g=b=(cx-cy<0?1:-1)*Math.exp(-(cx-cy)*(cx-cy));break;
+        case'dedge2':r=g=b=(cx+cy<0?1:-1)*Math.exp(-(cx+cy)*(cx+cy));break;
+        case'gabor':{
+          const a=param||0;const rx=cx*Math.cos(a)+cy*Math.sin(a);const ry=-cx*Math.sin(a)+cy*Math.cos(a);
+          r=g=b=Math.cos(2*Math.PI*rx*1.5)*Math.exp(-(rx*rx+ry*ry)*2);break}
+        case'rblob':r=Math.exp(-(cx*cx+cy*cy)*3);break;
+        case'gblob':g=Math.exp(-(cx*cx+cy*cy)*3);break;
+        case'bblob':b=Math.exp(-(cx*cx+cy*cy)*3);break;
+        case'rgblob':r=Math.exp(-(cx*cx+cy*cy)*3);g=r*.6;break;
+        case'cbblob':g=Math.exp(-(cx*cx+cy*cy)*3);b=g*.8;break;
+        case'center':r=g=b=Math.exp(-(cx*cx+cy*cy)*4);break;
+        case'surround':r=g=b=-Math.exp(-(cx*cx+cy*cy)*4)+Math.exp(-(cx*cx+cy*cy)*.8)*.5;break;
+        case'laplacian':r=g=b=(4*(cx*cx+cy*cy)-2)*Math.exp(-(cx*cx+cy*cy)*2);break;
+        case'checker':r=g=b=((Math.floor(x/2)+Math.floor(y/2))%2?1:-1)*.7;break;
+        case'noise':r=rng()*2-1;g=rng()*2-1;b=rng()*2-1;break;
+        default:r=g=b=rng()*2-1;
+      }
+      const i=(y*F+x)*3;f[i]=r;f[i+1]=g;f[i+2]=b;
+    }
+    return f;
+  }
+
+  const types=['hedge','vedge','dedge1','dedge2',
+    'gabor','gabor','gabor','gabor',
+    'rblob','gblob','bblob','rgblob',
+    'cbblob','center','surround','laplacian',
+    'hedge','vedge','dedge1','dedge2',
+    'gabor','gabor','gabor','gabor',
+    'rblob','gblob','bblob','checker',
+    'noise','center','surround','laplacian'];
+  const params=[0,0,0,0,0,.8,1.6,2.4,0,0,0,0,0,0,0,0,0,0,0,0,.4,1.2,2.0,2.8,0,0,0,0,0,0,0,0];
+
+  const filters=[];
+  for(let i=0;i<64;i++){
+    const t=i<types.length?types[i]:'noise';
+    const p=i<params.length?params[i]:rng()*Math.PI;
+    filters.push(makeFilter(t,p));
+  }
+
+  for(let gi=0;gi<64;gi++){
+    const row=Math.floor(gi/N),col=gi%N;
+    const ox=pad+col*(F*scale+pad),oy=pad+row*(F*scale+pad);
+    const f=filters[gi];
+    let mn=Infinity,mx=-Infinity;
+    for(let i=0;i<f.length;i++){mn=Math.min(mn,f[i]);mx=Math.max(mx,f[i])}
+    const range=mx-mn||1;
+    const id=ctx.createImageData(F*scale,F*scale);
+    for(let y=0;y<F;y++)for(let x=0;x<F;x++){
+      const si=(y*F+x)*3;
+      const rv=((f[si]-mn)/range)*255;
+      const gv=((f[si+1]-mn)/range)*255;
+      const bv=((f[si+2]-mn)/range)*255;
+      for(let dy=0;dy<scale;dy++)for(let dx=0;dx<scale;dx++){
+        const di=((y*scale+dy)*(F*scale)+(x*scale+dx))*4;
+        id.data[di]=rv;id.data[di+1]=gv;id.data[di+2]=bv;id.data[di+3]=255;
+      }
+    }
+    ctx.putImageData(id,ox,oy);
+  }
+})();
+
+// ============================================================
+// 2. Second Layer Filters (3x3, groups)
+// ============================================================
+(function(){
+  const cv=document.getElementById('c-layer2');
+  const ctx=cv.getContext('2d');
+  const F=3,scale=12,pad=2,groupPad=10;
+  const nGroups=8,filtersPerGroup=8;
+  const groupW=filtersPerGroup*(F*scale+pad)+pad;
+  const cols=4,rows=2;
+  cv.width=cols*(groupW+groupPad)+groupPad;
+  cv.height=rows*((F*scale+pad)+pad+18+groupPad)+groupPad;
+  ctx.fillStyle='#111';ctx.fillRect(0,0,cv.width,cv.height);
+
+  for(let gi=0;gi<nGroups;gi++){
+    const gc=gi%cols,gr=Math.floor(gi/cols);
+    const gx=groupPad+gc*(groupW+groupPad);
+    const gy=groupPad+gr*((F*scale+pad)+pad+18+groupPad);
+    ctx.fillStyle='var(--text2)';ctx.font='11px Inter,sans-serif';ctx.fillStyle='#8888aa';
+    ctx.fillText('Channel '+gi,gx,gy+12);
+    for(let fi=0;fi<filtersPerGroup;fi++){
+      const ox=gx+pad+fi*(F*scale+pad);
+      const oy=gy+18;
+      const id=ctx.createImageData(F*scale,F*scale);
+      for(let y=0;y<F;y++)for(let x=0;x<F;x++){
+        const v=Math.floor((rng()*0.6+0.2)*255);
+        const tint=gi%3;
+        let rv=v,gv=v,bv=v;
+        if(tint===0){rv=Math.min(255,v+30);gv=v-20;bv=v-20}
+        else if(tint===1){gv=Math.min(255,v+30);rv=v-20;bv=v-20}
+        else{bv=Math.min(255,v+30);rv=v-20;gv=v-20}
+        for(let dy=0;dy<scale;dy++)for(let dx=0;dx<scale;dx++){
+          const di=((y*scale+dy)*(F*scale)+(x*scale+dx))*4;
+          id.data[di]=Math.max(0,rv);id.data[di+1]=Math.max(0,gv);id.data[di+2]=Math.max(0,bv);id.data[di+3]=255;
+        }
+      }
+      ctx.putImageData(id,ox,oy);
+    }
+  }
+})();
+
+// ============================================================
+// 3. PCA Embedding of Class Vectors (pannable/zoomable)
+// ============================================================
+(function(){
+  const cv=document.getElementById('c-pca-class');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+
+  const classes=[
+    {name:'golden retriever',x:.7,y:.3,cat:'animal'},
+    {name:'labrador',x:.75,y:.35,cat:'animal'},
+    {name:'poodle',x:.65,y:.25,cat:'animal'},
+    {name:'beagle',x:.72,y:.22,cat:'animal'},
+    {name:'tabby cat',x:.55,y:.2,cat:'animal'},
+    {name:'persian cat',x:.5,y:.15,cat:'animal'},
+    {name:'siamese cat',x:.52,y:.25,cat:'animal'},
+    {name:'hamster',x:.45,y:.3,cat:'animal'},
+    {name:'robin',x:.35,y:.15,cat:'animal'},
+    {name:'flamingo',x:.3,y:.1,cat:'animal'},
+    {name:'sports car',x:.2,y:.7,cat:'vehicle'},
+    {name:'pickup truck',x:.25,y:.75,cat:'vehicle'},
+    {name:'school bus',x:.3,y:.8,cat:'vehicle'},
+    {name:'ambulance',x:.22,y:.82,cat:'vehicle'},
+    {name:'airplane',x:.15,y:.65,cat:'vehicle'},
+    {name:'sailboat',x:.12,y:.55,cat:'vehicle'},
+    {name:'bicycle',x:.28,y:.62,cat:'vehicle'},
+    {name:'pizza',x:.75,y:.7,cat:'food'},
+    {name:'hamburger',x:.8,y:.75,cat:'food'},
+    {name:'ice cream',x:.72,y:.78,cat:'food'},
+    {name:'banana',x:.68,y:.82,cat:'food'},
+    {name:'broccoli',x:.65,y:.72,cat:'food'},
+    {name:'laptop',x:.4,y:.55,cat:'object'},
+    {name:'keyboard',x:.42,y:.6,cat:'object'},
+    {name:'mouse',x:.38,y:.62,cat:'object'},
+    {name:'television',x:.45,y:.5,cat:'object'},
+    {name:'tennis ball',x:.55,y:.45,cat:'object'},
+    {name:'church',x:.15,y:.4,cat:'structure'},
+    {name:'castle',x:.1,y:.35,cat:'structure'},
+    {name:'bridge',x:.18,y:.45,cat:'structure'},
+  ];
+  const catColors={animal:'#4ade80',vehicle:'#38bdf8',food:'#fbbf24',object:'#f87171',structure:'#c084fc'};
+
+  let panX=0,panY=0,zoom=1;
+  let dragging=false,lastMx=0,lastMy=0;
+
+  function draw(){
+    ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()||'#1a1d27';
+    ctx.fillRect(0,0,W,H);
+    ctx.save();
+    ctx.translate(panX,panY);
+    ctx.scale(zoom,zoom);
+    const mx=40,my=40;
+    for(const c of classes){
+      const x=mx+c.x*(W-2*mx);
+      const y=my+c.y*(H-2*my);
+      ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);
+      ctx.fillStyle=catColors[c.cat]||'#fff';ctx.fill();
+      ctx.font='11px Inter,sans-serif';ctx.fillStyle='#ccc';
+      ctx.fillText(c.name,x+8,y+4);
+    }
+    ctx.restore();
+    ctx.fillStyle='#555';ctx.font='10px Inter,sans-serif';
+    ctx.fillText('PC1 →',W-50,H-8);
+    ctx.save();ctx.translate(10,50);ctx.rotate(-Math.PI/2);ctx.fillText('PC2 →',0,0);ctx.restore();
+    // legend
+    let lx=12,ly=H-12;
+    ctx.font='10px Inter,sans-serif';
+    for(const cat of Object.keys(catColors)){
+      ctx.fillStyle=catColors[cat];ctx.fillRect(lx,ly-8,10,10);
+      ctx.fillStyle='#999';ctx.fillText(cat,lx+14,ly);
+      lx+=ctx.measureText(cat).width+30;
+    }
+  }
+  draw();
+
+  cv.addEventListener('wheel',e=>{e.preventDefault();const d=e.deltaY>0?.9:1.1;const rect=cv.getBoundingClientRect();const mx=e.clientX-rect.left;const my=e.clientY-rect.top;panX=mx-(mx-panX)*d;panY=my-(my-panY)*d;zoom*=d;draw()},{passive:false});
+  cv.addEventListener('mousedown',e=>{dragging=true;lastMx=e.clientX;lastMy=e.clientY});
+  cv.addEventListener('mousemove',e=>{if(!dragging)return;panX+=e.clientX-lastMx;panY+=e.clientY-lastMy;lastMx=e.clientX;lastMy=e.clientY;draw()});
+  cv.addEventListener('mouseup',()=>dragging=false);
+  cv.addEventListener('mouseleave',()=>dragging=false);
+})();
+
+// ============================================================
+// 4. PCA & t-SNE Embeddings (CIFAR-10)
+// ============================================================
+(function(){
+  const cifarClasses=['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck'];
+  const nPerClass=20,nPoints=cifarClasses.length*nPerClass;
+
+  // Build legend
+  const legendEl=document.getElementById('cifar-legend');
+  cifarClasses.forEach((c,i)=>{
+    const d=document.createElement('span');d.className='legend-item';
+    d.innerHTML=`<span class="legend-swatch" style="background:${PALETTE[i]}"></span>${c}`;
+    legendEl.appendChild(d);
+  });
+
+  // Generate high-dim data (synthetic clusters)
+  const rng2=seededRandom(123);
+  const dim=50;
+  const centers=cifarClasses.map(()=>{const c=[];for(let d=0;d<dim;d++)c.push(rng2()*10-5);return c});
+  const data=[];const labels=[];
+  for(let ci=0;ci<cifarClasses.length;ci++){
+    for(let j=0;j<nPerClass;j++){
+      const pt=centers[ci].map(v=>v+(rng2()*2-1)*1.5);
+      data.push(pt);labels.push(ci);
+    }
+  }
+
+  // PCA
+  function pca2d(data){
+    const n=data.length,d=data[0].length;
+    const mean=new Float64Array(d);
+    for(const pt of data)for(let i=0;i<d;i++)mean[i]+=pt[i]/n;
+    const centered=data.map(pt=>pt.map((v,i)=>v-mean[i]));
+    // Power iteration for top 2 eigenvectors of covariance
+    function powerIter(mat,deflate){
+      let v=new Float64Array(d);for(let i=0;i<d;i++)v[i]=rng2();
+      for(let iter=0;iter<100;iter++){
+        const nv=new Float64Array(d);
+        for(const row of mat)for(let i=0;i<d;i++){let s=0;for(let j=0;j<d;j++)s+=row[j]*v[j];nv[i]+=row[i]*s}
+        let norm=0;for(let i=0;i<d;i++)norm+=nv[i]*nv[i];norm=Math.sqrt(norm);
+        for(let i=0;i<d;i++)v[i]=nv[i]/norm;
+      }
+      return v;
+    }
+    const pc1=powerIter(centered);
+    const proj1=centered.map(pt=>{let s=0;for(let i=0;i<d;i++)s+=pt[i]*pc1[i];return s});
+    const deflected=centered.map((pt,pi)=>pt.map((v,i)=>v-proj1[pi]*pc1[i]));
+    const pc2=powerIter(deflected);
+    const proj2=deflected.map(pt=>{let s=0;for(let i=0;i<d;i++)s+=pt[i]*pc2[i];return s});
+    return data.map((_,i)=>[proj1[i],proj2[i]]);
+  }
+
+  const pcaResult=pca2d(data);
+  function drawScatter(cv,points,lbl){
+    const ctx=cv.getContext('2d');const W=cv.width,H=cv.height;
+    ctx.fillStyle='#13151f';ctx.fillRect(0,0,W,H);
+    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+    for(const p of points){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1])}
+    const pad=30;const xr=xmax-xmin||1;const yr=ymax-ymin||1;
+    for(let i=0;i<points.length;i++){
+      const px=pad+(points[i][0]-xmin)/xr*(W-2*pad);
+      const py=pad+(points[i][1]-ymin)/yr*(H-2*pad);
+      ctx.beginPath();ctx.arc(px,py,3.5,0,Math.PI*2);
+      ctx.fillStyle=PALETTE[lbl[i]];ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    }
+  }
+  drawScatter(document.getElementById('c-pca'),pcaResult,labels);
+
+  // Simple t-SNE implementation
+  function tsne(data,perplexity,nIter){
+    const n=data.length,d=data[0].length;
+    // Pairwise distances
+    const dist=new Float64Array(n*n);
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+      let s=0;for(let k=0;k<d;k++)s+=(data[i][k]-data[j][k])**2;
+      dist[i*n+j]=s;dist[j*n+i]=s;
+    }
+    // P matrix via binary search for sigma
+    const P=new Float64Array(n*n);
+    for(let i=0;i<n;i++){
+      let lo=1e-10,hi=1e4,mid=1;
+      for(let iter=0;iter<50;iter++){
+        mid=(lo+hi)/2;let sumP=0;
+        for(let j=0;j<n;j++){if(j===i)continue;P[i*n+j]=Math.exp(-dist[i*n+j]/(2*mid*mid));sumP+=P[i*n+j]}
+        let H=0;for(let j=0;j<n;j++){if(j===i||sumP===0)continue;const pj=P[i*n+j]/sumP;if(pj>1e-10)H-=pj*Math.log2(pj)}
+        if(H>Math.log2(perplexity))hi=mid;else lo=mid;
+      }
+      let sumP=0;for(let j=0;j<n;j++)sumP+=P[i*n+j];
+      for(let j=0;j<n;j++)P[i*n+j]/=(sumP||1);
+    }
+    // Symmetrize
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+      const v=(P[i*n+j]+P[j*n+i])/(2*n);P[i*n+j]=v;P[j*n+i]=v;
+    }
+    // Initialize Y randomly
+    const Y=[];for(let i=0;i<n;i++)Y.push([rng2()*0.01,rng2()*0.01]);
+    const gains=[];const iY=[];
+    for(let i=0;i<n;i++){gains.push([1,1]);iY.push([0,0])}
+    const lr=100,momentum=.8;
+    for(let iter=0;iter<nIter;iter++){
+      // Q matrix
+      const Q=new Float64Array(n*n);let sumQ=0;
+      for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+        const dy0=Y[i][0]-Y[j][0],dy1=Y[i][1]-Y[j][1];
+        const v=1/(1+dy0*dy0+dy1*dy1);Q[i*n+j]=v;Q[j*n+i]=v;sumQ+=2*v;
+      }
+      // Gradient
+      const dY=[];for(let i=0;i<n;i++)dY.push([0,0]);
+      for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+        if(i===j)continue;
+        const q=Q[i*n+j]/(sumQ||1);
+        const mult=4*(P[i*n+j]-q)*Q[i*n+j];
+        dY[i][0]+=mult*(Y[i][0]-Y[j][0]);
+        dY[i][1]+=mult*(Y[i][1]-Y[j][1]);
+      }
+      for(let i=0;i<n;i++){
+        for(let dd=0;dd<2;dd++){
+          gains[i][dd]=(Math.sign(dY[i][dd])!==Math.sign(iY[i][dd]))?gains[i][dd]+.2:gains[i][dd]*.8;
+          gains[i][dd]=Math.max(gains[i][dd],.01);
+          iY[i][dd]=momentum*iY[i][dd]-lr*gains[i][dd]*dY[i][dd];
+          Y[i][dd]+=iY[i][dd];
+        }
+      }
+      // Re-center
+      let c0=0,c1=0;for(let i=0;i<n;i++){c0+=Y[i][0];c1+=Y[i][1]}
+      c0/=n;c1/=n;for(let i=0;i<n;i++){Y[i][0]-=c0;Y[i][1]-=c1}
+    }
+    return Y;
+  }
+
+  function runAndDrawTsne(){
+    const perp=+document.getElementById('perplexity').value;
+    const result=tsne(data,perp,300);
+    drawScatter(document.getElementById('c-tsne'),result,labels);
+  }
+  runAndDrawTsne();
+
+  document.getElementById('perplexity').addEventListener('input',e=>{
+    document.getElementById('perp-val').textContent=e.target.value;
+  });
+  document.getElementById('btn-rerun').addEventListener('click',runAndDrawTsne);
+})();
+
+// ============================================================
+// 5. Image Classification
+// ============================================================
+(function(){
+  const predictions=[
+    {label:'Golden Retriever',score:.65},
+    {label:'Labrador Retriever',score:.15},
+    {label:'Cocker Spaniel',score:.08},
+    {label:'Irish Setter',score:.05},
+    {label:'Tennis Ball',score:.03},
+  ];
+  const barsEl=document.getElementById('pred-bars');
+  predictions.forEach(p=>{
+    const row=document.createElement('div');row.className='bar-row';
+    const wPct=Math.round(p.score*100);
+    row.innerHTML=`<span class="bar-label">${p.label}</span><div class="bar" style="width:${wPct}%;max-width:100%"><span>${(p.score*100).toFixed(1)}%</span></div>`;
+    barsEl.appendChild(row);
+  });
+  // Animate bars
+  setTimeout(()=>{
+    barsEl.querySelectorAll('.bar').forEach(b=>{const w=b.style.width;b.style.width='0';requestAnimationFrame(()=>b.style.width=w)});
+  },100);
+
+  loadImgFallback('data/image_dog.jpg',(img)=>{
+    const cv=document.getElementById('c-classify-img');const ctx=cv.getContext('2d');
+    ctx.drawImage(img,0,0,224,224);
+  });
+})();
+
+// ============================================================
+// 6. Occlusion Sensitivity
+// ============================================================
+(function(){
+  const cvOcc=document.getElementById('c-occ');const ctxOcc=cvOcc.getContext('2d');
+  const cvHeat=document.getElementById('c-occ-heat');const ctxHeat=cvHeat.getContext('2d');
+  const sizeSlider=document.getElementById('occ-size');
+  const sizeVal=document.getElementById('occ-size-val');
+  const heatCheck=document.getElementById('occ-heatmap');
+
+  let dogImg=null;let patchX=80,patchY=60;
+
+  // Generate synthetic heatmap (importance centered on dog region)
+  const heatW=224,heatH=224;
+  const heatData=new Float32Array(heatW*heatH);
+  const dogCx=112,dogCy=100,dogRx=60,dogRy=70;
+  for(let y=0;y<heatH;y++)for(let x=0;x<heatW;x++){
+    const dx=(x-dogCx)/dogRx,dy=(y-dogCy)/dogRy;
+    heatData[y*heatW+x]=Math.exp(-(dx*dx+dy*dy)*1.2);
+  }
+
+  function drawOcc(){
+    if(!dogImg)return;
+    const ps=+sizeSlider.value;
+    ctxOcc.drawImage(dogImg,0,0,224,224);
+    ctxOcc.fillStyle='#000';
+    ctxOcc.fillRect(patchX-ps/2,patchY-ps/2,ps,ps);
+
+    // Draw heatmap
+    if(heatCheck.checked){
+      const id=ctxHeat.createImageData(heatW,heatH);
+      for(let y=0;y<heatH;y++)for(let x=0;x<heatW;x++){
+        const v=heatData[y*heatW+x];
+        const c=inferno(v);
+        const i=(y*heatW+x)*4;
+        id.data[i]=c[0];id.data[i+1]=c[1];id.data[i+2]=c[2];id.data[i+3]=255;
+      }
+      ctxHeat.putImageData(id,0,0);
+    } else {
+      ctxHeat.drawImage(dogImg,0,0,224,224);
+    }
+  }
+
+  loadImgFallback('data/image_dog.jpg',(img)=>{dogImg=img;drawOcc()});
+
+  let isDragging=false;
+  cvOcc.addEventListener('mousedown',e=>{isDragging=true;const r=cvOcc.getBoundingClientRect();patchX=e.clientX-r.left;patchY=e.clientY-r.top;drawOcc()});
+  cvOcc.addEventListener('mousemove',e=>{if(!isDragging)return;const r=cvOcc.getBoundingClientRect();patchX=e.clientX-r.left;patchY=e.clientY-r.top;drawOcc()});
+  cvOcc.addEventListener('mouseup',()=>isDragging=false);
+  cvOcc.addEventListener('mouseleave',()=>isDragging=false);
+  sizeSlider.addEventListener('input',e=>{sizeVal.textContent=e.target.value;drawOcc()});
+  heatCheck.addEventListener('change',drawOcc);
+})();
+
+// ============================================================
+// 7. Saliency Map
+// ============================================================
+(function(){
+  const cvOrig=document.getElementById('c-sal-orig');const ctxOrig=cvOrig.getContext('2d');
+  const cvSal=document.getElementById('c-sal');const ctxSal=cvSal.getContext('2d');
+  const opSlider=document.getElementById('sal-opacity');
+  const opVal=document.getElementById('sal-opacity-val');
+
+  let dogImg=null;
+  const W=224,H=224;
+
+  // Synthetic saliency: high around dog face/body
+  const salData=new Float32Array(W*H);
+  const cx1=112,cy1=85,r1=55;
+  const cx2=110,cy2=130,r2=45;
+  const rng3=seededRandom(77);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const d1=Math.sqrt((x-cx1)**2+(y-cy1)**2)/r1;
+    const d2=Math.sqrt((x-cx2)**2+(y-cy2)**2)/r2;
+    let v=Math.exp(-d1*d1*1.5)+.6*Math.exp(-d2*d2*1.5);
+    v+=rng3()*.15;
+    salData[y*W+x]=Math.max(0,Math.min(1,v));
+  }
+
+  function drawSaliency(){
+    if(!dogImg)return;
+    ctxOrig.drawImage(dogImg,0,0,W,H);
+    ctxSal.drawImage(dogImg,0,0,W,H);
+    const alpha=+opSlider.value/100;
+    const imgData=ctxSal.getImageData(0,0,W,H);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const v=salData[y*W+x];
+      const c=inferno(v);
+      const i=(y*W+x)*4;
+      imgData.data[i]=imgData.data[i]*(1-alpha)+c[0]*alpha;
+      imgData.data[i+1]=imgData.data[i+1]*(1-alpha)+c[1]*alpha;
+      imgData.data[i+2]=imgData.data[i+2]*(1-alpha)+c[2]*alpha;
+    }
+    ctxSal.putImageData(imgData,0,0);
+  }
+
+  loadImgFallback('data/image_dog.jpg',(img)=>{dogImg=img;drawSaliency()});
+
+  opSlider.addEventListener('input',e=>{
+    opVal.textContent=e.target.value+'%';
+    drawSaliency();
+  });
+})();
+
+// ============================================================
+// 8. Input Maximization
+// ============================================================
+(function(){
+  const cv=document.getElementById('c-maxim');const ctx=cv.getContext('2d');
+  const cvLoss=document.getElementById('c-maxim-loss');const ctxLoss=cvLoss.getContext('2d');
+  const btnStart=document.getElementById('btn-maxim-start');
+  const btnReset=document.getElementById('btn-maxim-reset');
+  const speedSlider=document.getElementById('maxim-speed');
+
+  const W=224,H=224;
+  let pixels=new Float32Array(W*H*3);
+  let step=0,running=false,animId=null;
+  const scoreHistory=[],tvHistory=[];
+  const maxSteps=200;
+
+  // Target pattern: a Gabor-like texture that will emerge
+  const targetR=new Float32Array(W*H);
+  const targetG=new Float32Array(W*H);
+  const targetB=new Float32Array(W*H);
+  const rng4=seededRandom(999);
+  // Create an interesting multi-frequency pattern
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const fx=x/W,fy=y/H;
+    const v1=Math.sin(fx*12+fy*8)*Math.cos(fy*15-fx*3);
+    const v2=Math.sin(fx*20-fy*5)*.5;
+    const v3=Math.cos((fx-.5)**2*30+(fy-.5)**2*30)*Math.sin(fx*16);
+    const env=Math.exp(-((fx-.5)**2+(fy-.5)**2)*3);
+    targetR[y*W+x]=(.5+.3*v1+.2*v2)*env+.15;
+    targetG[y*W+x]=(.4+.2*v1+.3*v3)*env+.1;
+    targetB[y*W+x]=(.6+.25*v2+.15*v3)*env+.1;
+  }
+
+  function initNoise(){
+    for(let i=0;i<W*H*3;i++)pixels[i]=rng4()*.4+.3;
+    step=0;scoreHistory.length=0;tvHistory.length=0;
+    drawMaxim();drawLossCurves();
+    document.getElementById('m-step').textContent='0';
+    document.getElementById('m-score').textContent='0.00';
+    document.getElementById('m-tv').textContent='0.00';
+  }
+
+  function drawMaxim(){
+    const id=ctx.createImageData(W,H);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const i=(y*W+x);
+      id.data[i*4]=Math.max(0,Math.min(255,pixels[i*3]*255));
+      id.data[i*4+1]=Math.max(0,Math.min(255,pixels[i*3+1]*255));
+      id.data[i*4+2]=Math.max(0,Math.min(255,pixels[i*3+2]*255));
+      id.data[i*4+3]=255;
+    }
+    ctx.putImageData(id,0,0);
+  }
+
+  function drawLossCurves(){
+    const CW=cvLoss.width,CH=cvLoss.height;
+    ctxLoss.fillStyle='#13151f';ctxLoss.fillRect(0,0,CW,CH);
+    if(scoreHistory.length<2)return;
+    const pad=35;
+    // Score curve
+    const maxS=Math.max(...scoreHistory,1e-6);
+    ctxLoss.strokeStyle='#6c8aff';ctxLoss.lineWidth=2;ctxLoss.beginPath();
+    for(let i=0;i<scoreHistory.length;i++){
+      const x=pad+i/(maxSteps)*(CW-2*pad);
+      const y=CH-pad-(scoreHistory[i]/maxS)*(CH-2*pad);
+      i===0?ctxLoss.moveTo(x,y):ctxLoss.lineTo(x,y);
+    }
+    ctxLoss.stroke();
+    // TV curve
+    const maxT=Math.max(...tvHistory,1e-6);
+    ctxLoss.strokeStyle='#f87171';ctxLoss.lineWidth=2;ctxLoss.beginPath();
+    for(let i=0;i<tvHistory.length;i++){
+      const x=pad+i/(maxSteps)*(CW-2*pad);
+      const y=CH-pad-(tvHistory[i]/maxT)*(CH-2*pad);
+      i===0?ctxLoss.moveTo(x,y):ctxLoss.lineTo(x,y);
+    }
+    ctxLoss.stroke();
+    // Axes
+    ctxLoss.strokeStyle='#444';ctxLoss.lineWidth=1;
+    ctxLoss.beginPath();ctxLoss.moveTo(pad,pad);ctxLoss.lineTo(pad,CH-pad);ctxLoss.lineTo(CW-pad,CH-pad);ctxLoss.stroke();
+    ctxLoss.fillStyle='#888';ctxLoss.font='10px Inter,sans-serif';
+    ctxLoss.fillText('Step',CW/2,CH-5);
+    ctxLoss.save();ctxLoss.translate(10,CH/2);ctxLoss.rotate(-Math.PI/2);ctxLoss.fillText('Value',0,0);ctxLoss.restore();
+  }
+
+  function stepAnimation(){
+    if(step>=maxSteps){running=false;btnStart.textContent='▶ Start Animation';return}
+    const t=step/maxSteps;
+    // Blend from noise toward target with smoothing
+    const blend=1-Math.exp(-t*4);
+    const smooth=Math.min(1,t*3);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const i=y*W+x;
+      // Move toward target
+      pixels[i*3]+=(targetR[i]*blend-pixels[i*3])*.08*smooth+(rng4()-.5)*.01*(1-t);
+      pixels[i*3+1]+=(targetG[i]*blend-pixels[i*3+1])*.08*smooth+(rng4()-.5)*.01*(1-t);
+      pixels[i*3+2]+=(targetB[i]*blend-pixels[i*3+2])*.08*smooth+(rng4()-.5)*.01*(1-t);
+    }
+    // Slight spatial smoothing
+    if(step%3===0){
+      const tmp=new Float32Array(pixels);
+      for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+        const i=y*W+x;
+        for(let c=0;c<3;c++){
+          tmp[i*3+c]=pixels[i*3+c]*.6+(pixels[(i-1)*3+c]+pixels[(i+1)*3+c]+pixels[(i-W)*3+c]+pixels[(i+W)*3+c])*.1;
+        }
+      }
+      pixels=tmp;
+    }
+
+    const classScore=.05+.95*(1-Math.exp(-t*5));
+    let tv=0;
+    for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+      const i=y*W+x;
+      for(let c=0;c<3;c++){tv+=Math.abs(pixels[(i+1)*3+c]-pixels[i*3+c])+Math.abs(pixels[(i+W)*3+c]-pixels[i*3+c])}
+    }
+    tv/=(W*H*3);
+    const tvNorm=tv*(1-t*.5);
+
+    scoreHistory.push(classScore);tvHistory.push(tvNorm);
+    step++;
+    document.getElementById('m-step').textContent=step;
+    document.getElementById('m-score').textContent=classScore.toFixed(2);
+    document.getElementById('m-tv').textContent=tvNorm.toFixed(3);
+    drawMaxim();drawLossCurves();
+  }
+
+  function animate(){
+    if(!running)return;
+    const speed=+speedSlider.value;
+    for(let s=0;s<speed;s++)stepAnimation();
+    if(running)animId=requestAnimationFrame(animate);
+  }
+
+  btnStart.addEventListener('click',()=>{
+    if(running){running=false;cancelAnimationFrame(animId);btnStart.textContent='▶ Start Animation'}
+    else{running=true;btnStart.textContent='⏸ Pause';animate()}
+  });
+  btnReset.addEventListener('click',()=>{running=false;cancelAnimationFrame(animId);btnStart.textContent='▶ Start Animation';initNoise()});
+
+  initNoise();
+})();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

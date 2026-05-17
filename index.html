@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computer Vision Course - Interactive Visualizations</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2d3148;
+    --text: #e4e6f0;
+    --text-dim: #8b8fa8;
+    --accent: #6c8cff;
+    --accent2: #ff6caa;
+    --accent3: #6cffc1;
+    --gradient-start: #6c8cff;
+    --gradient-end: #a855f7;
+  }
+  [data-theme="light"] {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #ecedf3;
+    --border: #d5d7e2;
+    --text: #1a1d2e;
+    --text-dim: #5c6078;
+    --accent: #4a6ae5;
+    --accent2: #e0458a;
+    --accent3: #18a770;
+    --gradient-start: #4a6ae5;
+    --gradient-end: #8b45d6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .hero {
+    text-align: center;
+    padding: 80px 20px 60px;
+    background: linear-gradient(135deg, rgba(108,140,255,0.08) 0%, rgba(168,85,247,0.08) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    font-size: 1.2rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  .hero .course-info {
+    margin-top: 20px;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+  }
+  .hero .course-info a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .hero .course-info a:hover { text-decoration: underline; }
+
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(108,140,255,0.15);
+    border-color: var(--accent);
+  }
+  .card-header {
+    padding: 28px 28px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .card-num {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .card-num.l02 { background: rgba(108,140,255,0.15); color: #6c8cff; }
+  .card-num.l03 { background: rgba(168,85,247,0.15); color: #a855f7; }
+  .card-num.l04 { background: rgba(255,108,170,0.15); color: #ff6caa; }
+  .card-num.l05 { background: rgba(108,255,193,0.15); color: #6cffc1; }
+  .card-num.l06 { background: rgba(255,193,108,0.15); color: #ffc16c; }
+  .card-num.l09 { background: rgba(108,230,255,0.15); color: #6ce6ff; }
+  .card-num.l10 { background: rgba(255,108,108,0.15); color: #ff6c6c; }
+  .card-num.l16 { background: rgba(193,108,255,0.15); color: #c16cff; }
+
+  .card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  .card-body {
+    padding: 20px 28px 28px;
+    flex: 1;
+  }
+  .card-desc {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .tag.interactive {
+    background: rgba(108,255,193,0.1);
+    color: #6cffc1;
+    border-color: rgba(108,255,193,0.3);
+  }
+
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+  .theme-toggle:hover{transform:scale(1.1)}
+  [data-theme="light"] .tag{background:#e8e9f0;color:#5c6078;border-color:#d0d2de}
+  [data-theme="light"] .tag.interactive{background:rgba(24,167,112,0.1);color:#18a770;border-color:rgba(24,167,112,0.3)}
+  [data-theme="light"] .card:hover{box-shadow:0 12px 40px rgba(74,106,229,0.12)}
+  [data-theme="light"] .hero{background:linear-gradient(135deg,rgba(74,106,229,0.06) 0%,rgba(139,69,214,0.06) 100%)}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+
+<div class="hero">
+  <h1>Computer Vision Visualizations</h1>
+  <p class="subtitle">Interactive browser-based replicas of the Jupyter notebook visualizations from the Oxford Computer Vision course.</p>
+  <p class="course-info">Based on <a href="https://github.com/chrirupp/cv_course" target="_blank">cv_course</a> by Christian Rupprecht, HT 2025</p>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="02_ImageEnhancement.html">
+    <div class="card-header">
+      <div class="card-num l02">02</div>
+      <div class="card-title">Image Enhancement</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">RGB channel separation, grayscale conversion, 3D heightmap, subsampling &amp; aliasing, point-wise transforms (negative, contrast, gamma), geometric transforms (translation, rotation, scaling, shear), and spatial filtering (average, Gaussian, median, bilateral).</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">Animations</span>
+        <span class="tag">Image Filtering</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="03_Fourier.html">
+    <div class="card-header">
+      <div class="card-num l03">03</div>
+      <div class="card-title">Fourier Transform</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">1D DFT with stem plots, DFT matrix visualization, 2D Fourier basis functions, FFT on real images (magnitude &amp; phase), animated FFT of geometric shapes, and frequency-domain filtering (low-pass, high-pass).</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">FFT Implementation</span>
+        <span class="tag">Animations</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="04_Restoration.html">
+    <div class="card-header">
+      <div class="card-num l04">04</div>
+      <div class="card-title">Image Restoration</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">Image degradation models (blur, motion blur, noise, downsampling), inverse filtering, Wiener filter deblurring, and interactive motion blur deconvolution with adjustable parameters.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">Wiener Filter</span>
+        <span class="tag">FFT-based</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="05_MatchingIndexSearch.html">
+    <div class="card-header">
+      <div class="card-num l05">05</div>
+      <div class="card-title">Matching &amp; Indexing</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">Interest point detection, feature matching visualization, Bag of Visual Words with histograms, homography warping, and Laplacian of Gaussian (LoG) at multiple scales.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">Corner Detection</span>
+        <span class="tag">LoG Scale Space</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="06_classification.html">
+    <div class="card-header">
+      <div class="card-num l06">06</div>
+      <div class="card-title">Classification</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">k-NN classification on 2D features, accuracy vs. k plot, and interactive softmax temperature visualization showing how temperature affects the output distribution.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">Softmax</span>
+        <span class="tag">k-NN</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="09_visualisation.html">
+    <div class="card-header">
+      <div class="card-num l09">09</div>
+      <div class="card-title">CNN Visualisation</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">Convolutional filter visualization (first &amp; second layer weights), PCA &amp; t-SNE embeddings of activations, occlusion sensitivity mapping, gradient saliency maps, and input maximization.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive</span>
+        <span class="tag">PCA / t-SNE</span>
+        <span class="tag">Saliency Maps</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="10_detection.html">
+    <div class="card-header">
+      <div class="card-num l10">10</div>
+      <div class="card-title">Object Detection</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">HOG feature visualization (gradients &amp; orientations), person detection, selective search proposals, classified proposals, Non-Maximum Suppression (NMS), and interactive IoU computation.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive / Draggable</span>
+        <span class="tag">HOG</span>
+        <span class="tag">NMS</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="16_generative.html">
+    <div class="card-header">
+      <div class="card-num l16">16</div>
+      <div class="card-title">Generative Models</div>
+    </div>
+    <div class="card-body">
+      <p class="card-desc">2D flow matching visualization with particle trajectories, velocity vector fields, ODE solving (dx/dt = -x), Euler's method comparison with varying step sizes, and animated sample generation.</p>
+      <div class="card-tags">
+        <span class="tag interactive">Interactive Sliders</span>
+        <span class="tag">Animations</span>
+        <span class="tag">Flow Matching</span>
+      </div>
+    </div>
+  </a>
+
+</div>
+
+<footer>
+  <p>Interactive HTML visualizations for the Oxford Computer Vision Course (HT 2025)</p>
+  <p style="margin-top:8px;">Original notebooks: <a href="https://github.com/chrirupp/cv_course" target="_blank">github.com/chrirupp/cv_course</a></p>
+</footer>
+
+<script>
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

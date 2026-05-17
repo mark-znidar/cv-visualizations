@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture 10 – Object Detection</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface2: #0f3460;
+            --accent: #e94560;
+            --accent2: #0ea5e9;
+            --text: #e0e0e0;
+            --text-muted: #a0a0b0;
+            --border: #2a2a4a;
+            --success: #22c55e;
+        }
+
+        [data-theme="light"] {
+            --bg: #f4f5f9;
+            --surface: #ffffff;
+            --surface2: #e8eaf2;
+            --accent: #d63050;
+            --accent2: #0880b8;
+            --text: #1a1d2e;
+            --text-muted: #5c6078;
+            --border: #d5d7e2;
+            --success: #18a770;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            color: var(--accent2);
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 1rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--accent); }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.2rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface2);
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .section-header:hover { background: #1a4a7a; }
+
+        .section-header h2 {
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-header .badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .section-header .badge.conceptual {
+            background: var(--accent2);
+        }
+
+        .chevron {
+            transition: transform 0.3s;
+            font-size: 1.2rem;
+        }
+        .section.collapsed .chevron { transform: rotate(-90deg); }
+        .section.collapsed .section-content { display: none; }
+
+        .section-content {
+            padding: 1.5rem;
+        }
+
+        .explanation {
+            background: rgba(14, 165, 233, 0.1);
+            border-left: 3px solid var(--accent2);
+            padding: 1rem 1.2rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.92rem;
+        }
+
+        .canvas-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .canvas-container {
+            text-align: center;
+        }
+
+        .canvas-container canvas {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .canvas-container label {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .value-display {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            min-width: 3rem;
+            text-align: center;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.85; }
+        button:active { transform: scale(0.97); }
+
+        .formula {
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.3);
+            padding: 0.8rem 1.2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            color: var(--accent2);
+        }
+
+        .iou-display {
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 1rem 0;
+            font-family: monospace;
+        }
+
+        .legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 0.5rem 0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .canvas-row { flex-direction: column; align-items: center; }
+        }
+        .theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+        .theme-toggle:hover{transform:scale(1.1)}
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+    <a href="index.html" class="back-link">← Back to Index</a>
+    <h1>Lecture 10 – Object Detection</h1>
+    <p class="subtitle">From HOG features to region proposals and non-maximum suppression</p>
+
+    <!-- Section 1: HOG -->
+    <div class="section" id="sec-hog">
+        <div class="section-header" onclick="toggleSection('sec-hog')">
+            <h2>1. HOG (Histogram of Oriented Gradients) <span class="badge">Interactive</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>HOG</strong> captures local edge/gradient structure by computing gradient orientations in small cells, 
+                accumulating them into histograms, and normalizing over blocks. This creates a descriptor robust to 
+                small deformations and illumination changes — ideal for pedestrian detection.
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="hog-original" width="320" height="400"></canvas>
+                    <label>Original Image</label>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="hog-magnitude" width="320" height="400"></canvas>
+                    <label>Gradient Magnitude</label>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="hog-angles" width="320" height="400"></canvas>
+                    <label>Gradient Angles (HSV)</label>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Select crop region on original to zoom:</label>
+                    <button onclick="resetHOGCrop()">Reset Crop</button>
+                </div>
+            </div>
+            <div class="canvas-row" id="hog-crop-row" style="display:none;">
+                <div class="canvas-container">
+                    <canvas id="hog-crop-mag" width="200" height="200"></canvas>
+                    <label>Cropped Magnitude</label>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="hog-crop-angle" width="200" height="200"></canvas>
+                    <label>Cropped Angles</label>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="hog-crop-cells" width="200" height="200"></canvas>
+                    <label>HOG Cell Histograms</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: HOG Person Detection -->
+    <div class="section" id="sec-hog-detect">
+        <div class="section-header" onclick="toggleSection('sec-hog-detect')">
+            <h2>2. HOG Person Detection <span class="badge conceptual">Conceptual</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>Pipeline:</strong> A fixed-size detection window (e.g., 64×128 pixels) slides across the image at 
+                multiple scales. At each position, HOG features are extracted and fed to a trained linear SVM. Positions 
+                scoring above the threshold are reported as detections. Overlapping detections are merged via NMS.
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="hog-detect-canvas" width="320" height="400"></canvas>
+                    <label>Detected Persons (preset bounding boxes)</label>
+                </div>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background:#22c55e;"></div>Detection (SVM score > threshold)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#eab308;"></div>Sliding window concept</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Selective Search -->
+    <div class="section" id="sec-selective">
+        <div class="section-header" onclick="toggleSection('sec-selective')">
+            <h2>3. Selective Search (Region Proposals) <span class="badge">Interactive</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>Selective Search</strong> starts with an over-segmentation and iteratively merges similar 
+                regions based on color, texture, size, and fill compatibility. The bounding boxes of all intermediate 
+                merged regions form the proposal set — typically 1000-2000 proposals covering objects at various scales.
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Proposals:</label>
+                    <input type="range" id="ss-count" min="10" max="500" value="80" oninput="updateSelectiveSearch()">
+                    <span class="value-display" id="ss-count-val">80</span>
+                </div>
+                <div class="control-group">
+                    <label>Min Size:</label>
+                    <input type="range" id="ss-min-size" min="20" max="150" value="40" oninput="updateSelectiveSearch()">
+                    <span class="value-display" id="ss-min-size-val">40</span>
+                </div>
+                <button onclick="regenerateProposals()">Regenerate</button>
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="ss-canvas" width="320" height="400"></canvas>
+                    <label>Region Proposals</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Classified Proposals -->
+    <div class="section" id="sec-rcnn">
+        <div class="section-header" onclick="toggleSection('sec-rcnn')">
+            <h2>4. Classified Proposals (R-CNN) <span class="badge conceptual">Conceptual</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>R-CNN Pipeline:</strong> (1) Generate ~2000 region proposals via selective search. 
+                (2) Warp each proposal to a fixed size (e.g., 227×227). (3) Extract CNN features (e.g., AlexNet fc7). 
+                (4) Classify each proposal with class-specific SVMs. (5) Apply bounding box regression for refinement. 
+                This was the first method to combine deep features with region proposals for detection.
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="rcnn-canvas" width="320" height="400"></canvas>
+                    <label>High-confidence classified proposals</label>
+                </div>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background:#22c55e;"></div>person</div>
+                <div class="legend-item"><div class="legend-color" style="background:#f59e0b;"></div>background objects</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 5: NMS -->
+    <div class="section" id="sec-nms">
+        <div class="section-header" onclick="toggleSection('sec-nms')">
+            <h2>5. Non-Maximum Suppression (NMS) <span class="badge">Interactive</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>NMS</strong> removes redundant detections: (1) Sort all boxes by confidence. 
+                (2) Pick the top-scoring box, remove all boxes with IoU > threshold relative to it. 
+                (3) Repeat with remaining boxes until none are left. This ensures one detection per object.
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>IoU Threshold:</label>
+                    <input type="range" id="nms-iou" min="0.1" max="0.9" step="0.05" value="0.5" oninput="updateNMS()">
+                    <span class="value-display" id="nms-iou-val">0.50</span>
+                </div>
+                <button onclick="animateNMS()">Animate NMS</button>
+                <button onclick="resetNMS()">Reset</button>
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="nms-before" width="400" height="350"></canvas>
+                    <label>Before NMS (all detections)</label>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="nms-after" width="400" height="350"></canvas>
+                    <label>After NMS (suppressed)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 6: IoU -->
+    <div class="section" id="sec-iou">
+        <div class="section-header" onclick="toggleSection('sec-iou')">
+            <h2>6. IoU (Intersection over Union) <span class="badge">Interactive</span></h2>
+            <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="explanation">
+                <strong>IoU</strong> measures how much two bounding boxes overlap. It's the standard metric for 
+                evaluating detection accuracy (mAP uses IoU thresholds like 0.5 or 0.75) and for NMS suppression decisions.
+            </div>
+            <div class="formula">IoU = Area(A ∩ B) / Area(A ∪ B)</div>
+            <div class="iou-display" id="iou-value" style="color: var(--accent);">IoU = 0.00</div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Drag the boxes to change overlap. <span style="color:#22c55e;">Green = Box A</span>, <span style="color:#e94560;">Red = Box B</span>, <span style="color:#eab308;">Yellow = Intersection</span></label>
+                </div>
+            </div>
+            <div class="canvas-row">
+                <div class="canvas-container">
+                    <canvas id="iou-canvas" width="600" height="400"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    function toggleSection(id) {
+        document.getElementById(id).classList.toggle('collapsed');
+    }
+
+    const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            if(location.protocol!=='file:')img.crossOrigin='anonymous';
+            img.onload = () => resolve(img);
+            const fn=src.split('/').pop();
+            img.onerror = () => {
+                if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub:',fn);img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}
+                else{reject(new Error('Failed to load '+src));}
+            };
+            img.src = src;
+        });
+    }
+
+    function toGrayscale(imageData) {
+        const d = imageData.data;
+        const gray = new Float32Array(imageData.width * imageData.height);
+        for (let i = 0; i < gray.length; i++) {
+            gray[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
+        }
+        return gray;
+    }
+
+    // ============================================================
+    // SECTION 1: HOG
+    // ============================================================
+    let hogImageData = null;
+    let hogGray = null;
+    let hogMagnitude = null;
+    let hogAngles = null;
+    let hogW = 320, hogH = 400;
+    let hogCropStart = null, hogCropping = false;
+
+    async function initHOG() {
+        const img = await loadImage('data/image_me.jpg');
+        const canvas = document.getElementById('hog-original');
+        const ctx = canvas.getContext('2d');
+        
+        const scale = Math.min(hogW / img.width, hogH / img.height);
+        const w = Math.floor(img.width * scale);
+        const h = Math.floor(img.height * scale);
+        canvas.width = w; canvas.height = h;
+        hogW = w; hogH = h;
+
+        ctx.drawImage(img, 0, 0, w, h);
+        hogImageData = ctx.getImageData(0, 0, w, h);
+        hogGray = toGrayscale(hogImageData);
+
+        computeGradients();
+        drawMagnitude();
+        drawAngles();
+        setupHOGCrop();
+    }
+
+    function computeGradients() {
+        const w = hogW, h = hogH;
+        hogMagnitude = new Float32Array(w * h);
+        hogAngles = new Float32Array(w * h);
+
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const idx = y * w + x;
+                const dx = hogGray[idx + 1] - hogGray[idx - 1];
+                const dy = hogGray[idx + w] - hogGray[idx - w];
+                hogMagnitude[idx] = Math.sqrt(dx * dx + dy * dy);
+                hogAngles[idx] = Math.atan2(dy, dx);
+            }
+        }
+    }
+
+    function drawMagnitude() {
+        const canvas = document.getElementById('hog-magnitude');
+        canvas.width = hogW; canvas.height = hogH;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(hogW, hogH);
+        
+        let maxMag = 0;
+        for (let i = 0; i < hogMagnitude.length; i++) {
+            if (hogMagnitude[i] > maxMag) maxMag = hogMagnitude[i];
+        }
+
+        for (let i = 0; i < hogMagnitude.length; i++) {
+            const v = Math.floor((hogMagnitude[i] / maxMag) * 255);
+            imgData.data[i*4] = v;
+            imgData.data[i*4+1] = v;
+            imgData.data[i*4+2] = v;
+            imgData.data[i*4+3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function hsvToRgb(h, s, v) {
+        let r, g, b;
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+        switch (i % 6) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        return [Math.floor(r*255), Math.floor(g*255), Math.floor(b*255)];
+    }
+
+    function drawAngles() {
+        const canvas = document.getElementById('hog-angles');
+        canvas.width = hogW; canvas.height = hogH;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(hogW, hogH);
+
+        let maxMag = 0;
+        for (let i = 0; i < hogMagnitude.length; i++) {
+            if (hogMagnitude[i] > maxMag) maxMag = hogMagnitude[i];
+        }
+
+        for (let i = 0; i < hogMagnitude.length; i++) {
+            const angle = hogAngles[i];
+            const hue = (angle + Math.PI) / (2 * Math.PI);
+            const sat = 1.0;
+            const val = Math.min(hogMagnitude[i] / (maxMag * 0.5), 1.0);
+            const [r, g, b] = hsvToRgb(hue, sat, val);
+            imgData.data[i*4] = r;
+            imgData.data[i*4+1] = g;
+            imgData.data[i*4+2] = b;
+            imgData.data[i*4+3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function setupHOGCrop() {
+        const canvas = document.getElementById('hog-original');
+        let startX, startY;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            hogCropping = true;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!hogCropping) return;
+            hogCropping = false;
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            const x1 = Math.max(1, Math.min(startX, endX));
+            const y1 = Math.max(1, Math.min(startY, endY));
+            const x2 = Math.min(hogW - 2, Math.max(startX, endX));
+            const y2 = Math.min(hogH - 2, Math.max(startY, endY));
+            
+            if (x2 - x1 > 20 && y2 - y1 > 20) {
+                drawHOGCrop(Math.floor(x1), Math.floor(y1), Math.floor(x2), Math.floor(y2));
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!hogCropping) return;
+            const rect = canvas.getBoundingClientRect();
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(hogImageData, 0, 0);
+            const curX = e.clientX - rect.left;
+            const curY = e.clientY - rect.top;
+            ctx.strokeStyle = '#e94560';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(startX, startY, curX - startX, curY - startY);
+            ctx.setLineDash([]);
+        });
+    }
+
+    function drawHOGCrop(x1, y1, x2, y2) {
+        document.getElementById('hog-crop-row').style.display = 'flex';
+        const cw = x2 - x1, ch = y2 - y1;
+        const size = 200;
+
+        // Magnitude crop
+        const magCanvas = document.getElementById('hog-crop-mag');
+        magCanvas.width = size; magCanvas.height = size;
+        const magCtx = magCanvas.getContext('2d');
+        const srcMag = document.getElementById('hog-magnitude');
+        magCtx.drawImage(srcMag, x1, y1, cw, ch, 0, 0, size, size);
+
+        // Angle crop
+        const angCanvas = document.getElementById('hog-crop-angle');
+        angCanvas.width = size; angCanvas.height = size;
+        const angCtx = angCanvas.getContext('2d');
+        const srcAng = document.getElementById('hog-angles');
+        angCtx.drawImage(srcAng, x1, y1, cw, ch, 0, 0, size, size);
+
+        // HOG cells visualization
+        const cellCanvas = document.getElementById('hog-crop-cells');
+        cellCanvas.width = size; cellCanvas.height = size;
+        const cellCtx = cellCanvas.getContext('2d');
+        cellCtx.fillStyle = '#000';
+        cellCtx.fillRect(0, 0, size, size);
+
+        const cellSize = 8;
+        const scaleX = cw / size;
+        const scaleY = ch / size;
+        const numBins = 9;
+
+        for (let cy = 0; cy < size; cy += cellSize * 2) {
+            for (let cx = 0; cx < size; cx += cellSize * 2) {
+                const bins = new Float32Array(numBins);
+                for (let dy = 0; dy < cellSize * 2; dy++) {
+                    for (let dx = 0; dx < cellSize * 2; dx++) {
+                        const imgX = Math.floor((cx + dx) * scaleX) + x1;
+                        const imgY = Math.floor((cy + dy) * scaleY) + y1;
+                        if (imgX < hogW && imgY < hogH) {
+                            const idx = imgY * hogW + imgX;
+                            let angle = hogAngles[idx];
+                            if (angle < 0) angle += Math.PI;
+                            const bin = Math.floor(angle / Math.PI * numBins) % numBins;
+                            bins[bin] += hogMagnitude[idx];
+                        }
+                    }
+                }
+
+                let maxBin = 0;
+                for (let b = 0; b < numBins; b++) if (bins[b] > maxBin) maxBin = bins[b];
+                if (maxBin === 0) continue;
+
+                const centerX = cx + cellSize;
+                const centerY = cy + cellSize;
+
+                for (let b = 0; b < numBins; b++) {
+                    const strength = bins[b] / maxBin;
+                    if (strength < 0.1) continue;
+                    const angle = (b / numBins) * Math.PI;
+                    const len = strength * cellSize * 0.9;
+                    cellCtx.strokeStyle = `rgba(14, 165, 233, ${strength})`;
+                    cellCtx.lineWidth = 1.5;
+                    cellCtx.beginPath();
+                    cellCtx.moveTo(centerX - Math.cos(angle) * len, centerY - Math.sin(angle) * len);
+                    cellCtx.lineTo(centerX + Math.cos(angle) * len, centerY + Math.sin(angle) * len);
+                    cellCtx.stroke();
+                }
+            }
+        }
+    }
+
+    function resetHOGCrop() {
+        document.getElementById('hog-crop-row').style.display = 'none';
+        const ctx = document.getElementById('hog-original').getContext('2d');
+        ctx.putImageData(hogImageData, 0, 0);
+    }
+
+    // ============================================================
+    // SECTION 2: HOG Person Detection
+    // ============================================================
+    async function initHOGDetection() {
+        const img = await loadImage('data/image_me.jpg');
+        const canvas = document.getElementById('hog-detect-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const scale = Math.min(320 / img.width, 400 / img.height);
+        const w = Math.floor(img.width * scale);
+        const h = Math.floor(img.height * scale);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const boxes = [
+            { x: w * 0.25, y: h * 0.05, w: w * 0.5, h: h * 0.9, score: 0.94 },
+            { x: w * 0.28, y: h * 0.08, w: w * 0.45, h: h * 0.85, score: 0.87 },
+        ];
+
+        boxes.forEach(box => {
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(box.x, box.y, box.w, box.h);
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.8)';
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText(`person: ${box.score.toFixed(2)}`, box.x + 4, box.y + 14);
+        });
+
+        // Show sliding window concept
+        ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        for (let y = 0; y < h - 80; y += 60) {
+            for (let x = 0; x < w - 50; x += 50) {
+                ctx.strokeRect(x, y, 50, 80);
+            }
+        }
+        ctx.setLineDash([]);
+    }
+
+    // ============================================================
+    // SECTION 3: Selective Search
+    // ============================================================
+    let ssProposals = [];
+    let ssImage = null;
+
+    async function initSelectiveSearch() {
+        ssImage = await loadImage('data/image_me.jpg');
+        generateProposals();
+        updateSelectiveSearch();
+    }
+
+    function generateProposals() {
+        ssProposals = [];
+        const canvas = document.getElementById('ss-canvas');
+        const scale = Math.min(320 / ssImage.width, 400 / ssImage.height);
+        const w = Math.floor(ssImage.width * scale);
+        const h = Math.floor(ssImage.height * scale);
+        canvas.width = w; canvas.height = h;
+
+        // Generate hierarchical proposals (simulating selective search merging)
+        const numBase = 600;
+        for (let i = 0; i < numBase; i++) {
+            const level = Math.random();
+            let bw, bh, bx, by;
+            
+            if (level < 0.4) {
+                // Small proposals
+                bw = 20 + Math.random() * 60;
+                bh = 20 + Math.random() * 60;
+            } else if (level < 0.75) {
+                // Medium proposals
+                bw = 50 + Math.random() * 120;
+                bh = 50 + Math.random() * 120;
+            } else {
+                // Large proposals
+                bw = 100 + Math.random() * (w * 0.5);
+                bh = 100 + Math.random() * (h * 0.5);
+            }
+
+            bx = Math.random() * (w - bw);
+            by = Math.random() * (h - bh);
+            
+            ssProposals.push({ x: bx, y: by, w: bw, h: bh, score: Math.random() });
+        }
+        ssProposals.sort((a, b) => b.score - a.score);
+    }
+
+    function regenerateProposals() {
+        generateProposals();
+        updateSelectiveSearch();
+    }
+
+    function updateSelectiveSearch() {
+        const count = parseInt(document.getElementById('ss-count').value);
+        const minSize = parseInt(document.getElementById('ss-min-size').value);
+        document.getElementById('ss-count-val').textContent = count;
+        document.getElementById('ss-min-size-val').textContent = minSize;
+
+        const canvas = document.getElementById('ss-canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = Math.min(320 / ssImage.width, 400 / ssImage.height);
+        const w = Math.floor(ssImage.width * scale);
+        const h = Math.floor(ssImage.height * scale);
+
+        ctx.drawImage(ssImage, 0, 0, w, h);
+
+        const filtered = ssProposals.filter(p => p.w >= minSize || p.h >= minSize);
+        const shown = filtered.slice(0, count);
+
+        shown.forEach((p, i) => {
+            const hue = (i / shown.length) * 360;
+            ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(p.x, p.y, p.w, p.h);
+        });
+    }
+
+    // ============================================================
+    // SECTION 4: R-CNN Classified Proposals
+    // ============================================================
+    async function initRCNN() {
+        const img = await loadImage('data/image_me.jpg');
+        const canvas = document.getElementById('rcnn-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const scale = Math.min(320 / img.width, 400 / img.height);
+        const w = Math.floor(img.width * scale);
+        const h = Math.floor(img.height * scale);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const detections = [
+            { x: w*0.22, y: h*0.03, w: w*0.55, h: h*0.94, label: 'person', score: 0.96, color: '#22c55e' },
+            { x: w*0.1, y: h*0.4, w: w*0.25, h: h*0.3, label: 'backpack', score: 0.72, color: '#f59e0b' },
+            { x: w*0.05, y: h*0.75, w: w*0.3, h: h*0.2, label: 'bench', score: 0.58, color: '#f59e0b' },
+        ];
+
+        detections.forEach(det => {
+            ctx.strokeStyle = det.color;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(det.x, det.y, det.w, det.h);
+
+            const text = `${det.label}: ${det.score.toFixed(2)}`;
+            ctx.font = 'bold 11px monospace';
+            const tw = ctx.measureText(text).width;
+            ctx.fillStyle = det.color;
+            ctx.fillRect(det.x, det.y - 16, tw + 8, 16);
+            ctx.fillStyle = '#000';
+            ctx.fillText(text, det.x + 4, det.y - 4);
+        });
+    }
+
+    // ============================================================
+    // SECTION 5: NMS
+    // ============================================================
+    let nmsBoxes = [];
+    let nmsAnimating = false;
+
+    function initNMS() {
+        // Create overlapping detection boxes around two "object" centers
+        nmsBoxes = [];
+        const centers = [
+            { cx: 150, cy: 150 },
+            { cx: 300, cy: 200 },
+        ];
+
+        centers.forEach(c => {
+            for (let i = 0; i < 8; i++) {
+                const jitter = 25;
+                const x = c.cx - 40 + (Math.random() - 0.5) * jitter * 2;
+                const y = c.cy - 50 + (Math.random() - 0.5) * jitter * 2;
+                const w = 70 + (Math.random() - 0.5) * 30;
+                const h = 90 + (Math.random() - 0.5) * 30;
+                const score = 0.5 + Math.random() * 0.5;
+                nmsBoxes.push({ x, y, w, h, score, suppressed: false });
+            }
+        });
+
+        nmsBoxes.sort((a, b) => b.score - a.score);
+        updateNMS();
+    }
+
+    function computeIoU(a, b) {
+        const x1 = Math.max(a.x, b.x);
+        const y1 = Math.max(a.y, b.y);
+        const x2 = Math.min(a.x + a.w, b.x + b.w);
+        const y2 = Math.min(a.y + a.h, b.y + b.h);
+        
+        if (x2 <= x1 || y2 <= y1) return 0;
+        
+        const intersection = (x2 - x1) * (y2 - y1);
+        const areaA = a.w * a.h;
+        const areaB = b.w * b.h;
+        return intersection / (areaA + areaB - intersection);
+    }
+
+    function runNMS(boxes, threshold) {
+        const result = boxes.map(b => ({...b, suppressed: false}));
+        
+        for (let i = 0; i < result.length; i++) {
+            if (result[i].suppressed) continue;
+            for (let j = i + 1; j < result.length; j++) {
+                if (result[j].suppressed) continue;
+                if (computeIoU(result[i], result[j]) > threshold) {
+                    result[j].suppressed = true;
+                }
+            }
+        }
+        return result;
+    }
+
+    function updateNMS() {
+        const threshold = parseFloat(document.getElementById('nms-iou').value);
+        document.getElementById('nms-iou-val').textContent = threshold.toFixed(2);
+
+        drawNMSBefore();
+        
+        const result = runNMS(nmsBoxes, threshold);
+        drawNMSAfter(result);
+    }
+
+    function drawNMSBefore() {
+        const canvas = document.getElementById('nms-before');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        nmsBoxes.forEach(box => {
+            const alpha = 0.3 + box.score * 0.5;
+            ctx.strokeStyle = `rgba(233, 69, 96, ${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.w, box.h);
+            ctx.fillStyle = `rgba(233, 69, 96, 0.1)`;
+            ctx.fillRect(box.x, box.y, box.w, box.h);
+            ctx.fillStyle = `rgba(255,255,255,0.8)`;
+            ctx.font = '10px monospace';
+            ctx.fillText(box.score.toFixed(2), box.x + 2, box.y + 12);
+        });
+    }
+
+    function drawNMSAfter(result) {
+        const canvas = document.getElementById('nms-after');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        result.forEach(box => {
+            if (box.suppressed) {
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(box.x, box.y, box.w, box.h);
+                ctx.setLineDash([]);
+            } else {
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(box.x, box.y, box.w, box.h);
+                ctx.fillStyle = `rgba(34, 197, 94, 0.15)`;
+                ctx.fillRect(box.x, box.y, box.w, box.h);
+                ctx.fillStyle = '#22c55e';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(box.score.toFixed(2), box.x + 2, box.y + 14);
+            }
+        });
+
+        const kept = result.filter(b => !b.suppressed).length;
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '13px sans-serif';
+        ctx.fillText(`Kept: ${kept} / ${result.length}`, 10, canvas.height - 12);
+    }
+
+    async function animateNMS() {
+        if (nmsAnimating) return;
+        nmsAnimating = true;
+        const threshold = parseFloat(document.getElementById('nms-iou').value);
+        const canvas = document.getElementById('nms-after');
+        const ctx = canvas.getContext('2d');
+        
+        const result = nmsBoxes.map(b => ({...b, suppressed: false}));
+        
+        for (let i = 0; i < result.length; i++) {
+            if (result[i].suppressed) continue;
+            
+            // Highlight current box
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            result.forEach((box, idx) => {
+                if (box.suppressed) {
+                    ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.strokeRect(box.x, box.y, box.w, box.h);
+                    ctx.setLineDash([]);
+                } else if (idx === i) {
+                    ctx.strokeStyle = '#eab308';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(box.x, box.y, box.w, box.h);
+                    ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
+                    ctx.fillRect(box.x, box.y, box.w, box.h);
+                } else if (idx < i) {
+                    ctx.strokeStyle = '#22c55e';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x, box.y, box.w, box.h);
+                } else {
+                    ctx.strokeStyle = 'rgba(233, 69, 96, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(box.x, box.y, box.w, box.h);
+                }
+            });
+
+            await new Promise(r => setTimeout(r, 300));
+
+            for (let j = i + 1; j < result.length; j++) {
+                if (result[j].suppressed) continue;
+                if (computeIoU(result[i], result[j]) > threshold) {
+                    result[j].suppressed = true;
+                }
+            }
+        }
+
+        drawNMSAfter(result);
+        nmsAnimating = false;
+    }
+
+    function resetNMS() {
+        initNMS();
+    }
+
+    // ============================================================
+    // SECTION 6: IoU Interactive
+    // ============================================================
+    let iouBoxA = { x: 150, y: 100, w: 180, h: 150 };
+    let iouBoxB = { x: 250, y: 150, w: 180, h: 150 };
+    let iouDragging = null;
+    let iouDragOffset = { x: 0, y: 0 };
+
+    function initIoU() {
+        const canvas = document.getElementById('iou-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.addEventListener('mousedown', iouMouseDown);
+        canvas.addEventListener('mousemove', iouMouseMove);
+        canvas.addEventListener('mouseup', iouMouseUp);
+        canvas.addEventListener('mouseleave', iouMouseUp);
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            iouMouseDown({ clientX: touch.clientX, clientY: touch.clientY, target: canvas });
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            iouMouseMove({ clientX: touch.clientX, clientY: touch.clientY, target: canvas });
+        });
+        canvas.addEventListener('touchend', iouMouseUp);
+
+        drawIoU();
+    }
+
+    function iouMouseDown(e) {
+        const canvas = document.getElementById('iou-canvas');
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        if (mx >= iouBoxB.x && mx <= iouBoxB.x + iouBoxB.w &&
+            my >= iouBoxB.y && my <= iouBoxB.y + iouBoxB.h) {
+            iouDragging = 'B';
+            iouDragOffset = { x: mx - iouBoxB.x, y: my - iouBoxB.y };
+        } else if (mx >= iouBoxA.x && mx <= iouBoxA.x + iouBoxA.w &&
+                   my >= iouBoxA.y && my <= iouBoxA.y + iouBoxA.h) {
+            iouDragging = 'A';
+            iouDragOffset = { x: mx - iouBoxA.x, y: my - iouBoxA.y };
+        }
+    }
+
+    function iouMouseMove(e) {
+        if (!iouDragging) return;
+        const canvas = document.getElementById('iou-canvas');
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        if (iouDragging === 'A') {
+            iouBoxA.x = mx - iouDragOffset.x;
+            iouBoxA.y = my - iouDragOffset.y;
+        } else {
+            iouBoxB.x = mx - iouDragOffset.x;
+            iouBoxB.y = my - iouDragOffset.y;
+        }
+        drawIoU();
+    }
+
+    function iouMouseUp() {
+        iouDragging = null;
+    }
+
+    function drawIoU() {
+        const canvas = document.getElementById('iou-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x < canvas.width; x += 50) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += 50) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        // Compute intersection
+        const ix1 = Math.max(iouBoxA.x, iouBoxB.x);
+        const iy1 = Math.max(iouBoxA.y, iouBoxB.y);
+        const ix2 = Math.min(iouBoxA.x + iouBoxA.w, iouBoxB.x + iouBoxB.w);
+        const iy2 = Math.min(iouBoxA.y + iouBoxA.h, iouBoxB.y + iouBoxB.h);
+
+        const interW = Math.max(0, ix2 - ix1);
+        const interH = Math.max(0, iy2 - iy1);
+        const interArea = interW * interH;
+        const areaA = iouBoxA.w * iouBoxA.h;
+        const areaB = iouBoxB.w * iouBoxB.h;
+        const unionArea = areaA + areaB - interArea;
+        const iou = unionArea > 0 ? interArea / unionArea : 0;
+
+        // Draw Box A
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+        ctx.fillRect(iouBoxA.x, iouBoxA.y, iouBoxA.w, iouBoxA.h);
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(iouBoxA.x, iouBoxA.y, iouBoxA.w, iouBoxA.h);
+
+        // Draw Box B
+        ctx.fillStyle = 'rgba(233, 69, 96, 0.2)';
+        ctx.fillRect(iouBoxB.x, iouBoxB.y, iouBoxB.w, iouBoxB.h);
+        ctx.strokeStyle = '#e94560';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(iouBoxB.x, iouBoxB.y, iouBoxB.w, iouBoxB.h);
+
+        // Draw intersection
+        if (interArea > 0) {
+            ctx.fillStyle = 'rgba(234, 179, 8, 0.5)';
+            ctx.fillRect(ix1, iy1, interW, interH);
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(ix1, iy1, interW, interH);
+        }
+
+        // Labels
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText('A', iouBoxA.x + 5, iouBoxA.y + 18);
+        ctx.fillStyle = '#e94560';
+        ctx.fillText('B', iouBoxB.x + iouBoxB.w - 18, iouBoxB.y + 18);
+
+        // Area info
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#a0a0b0';
+        ctx.fillText(`Area(A) = ${Math.round(areaA)}`, 10, canvas.height - 45);
+        ctx.fillText(`Area(B) = ${Math.round(areaB)}`, 10, canvas.height - 28);
+        ctx.fillText(`Intersection = ${Math.round(interArea)}  |  Union = ${Math.round(unionArea)}`, 10, canvas.height - 11);
+
+        // Update IoU display
+        const iouEl = document.getElementById('iou-value');
+        iouEl.textContent = `IoU = ${iou.toFixed(4)}`;
+        if (iou > 0.7) iouEl.style.color = '#22c55e';
+        else if (iou > 0.4) iouEl.style.color = '#eab308';
+        else iouEl.style.color = 'var(--accent)';
+    }
+
+    // ============================================================
+    // INIT ALL
+    // ============================================================
+    window.addEventListener('DOMContentLoaded', () => {
+        initHOG();
+        initHOGDetection();
+        initSelectiveSearch();
+        initRCNN();
+        initNMS();
+        initIoU();
+    });
+
+    function toggleTheme(){
+      const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+      document.documentElement.setAttribute('data-theme',t);
+      localStorage.setItem('cv-theme',t);
+      document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+    }
+    (function(){
+      const saved=localStorage.getItem('cv-theme');
+      if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+    })();
+    </script>
+</body>
+</html>

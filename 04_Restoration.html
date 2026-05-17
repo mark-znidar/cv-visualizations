@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 – Image Restoration</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242837;--border:#2e3348;--text:#e2e4ed;--text2:#9a9db5;--accent:#6c8cff;--accent2:#4fc3f7;--radius:10px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f5f6fa;--surface:#ffffff;--surface2:#ecedf3;--border:#d5d7e2;--text:#1a1d2e;--text2:#5c6078;--accent:#4a6ae5;--accent2:#2897c7;--shadow:0 4px 24px rgba(0,0,0,.06)}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;line-height:1.6;padding:20px 20px 60px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.back-link{display:inline-block;margin-bottom:24px;font-size:.95rem;opacity:.85;transition:opacity .2s}
+.back-link:hover{opacity:1}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text2);margin-bottom:32px;font-size:1rem}
+.container{max-width:1200px;margin:0 auto}
+
+/* Collapsible sections */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow)}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;cursor:pointer;user-select:none;transition:background .2s}
+.section-header:hover{background:var(--surface2)}
+.section-header h2{font-size:1.2rem;font-weight:600}
+.section-header .toggle{font-size:1.4rem;color:var(--text2);transition:transform .3s}
+.section.collapsed .toggle{transform:rotate(-90deg)}
+.section-body{padding:0 24px 24px;transition:max-height .4s ease}
+.section.collapsed .section-body{display:none}
+
+/* Controls */
+.controls{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;align-items:center}
+.control-group{display:flex;align-items:center;gap:8px}
+.control-group label{font-size:.85rem;color:var(--text2);white-space:nowrap}
+.control-group input[type=range]{width:180px;accent-color:var(--accent);cursor:pointer}
+.control-group .val{font-size:.85rem;color:var(--accent);min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* Canvas displays */
+.canvas-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.canvas-box{display:flex;flex-direction:column;align-items:center}
+.canvas-box canvas{border-radius:6px;border:1px solid var(--border);image-rendering:pixelated}
+.canvas-box .cap{font-size:.78rem;color:var(--text2);margin-top:6px;text-align:center}
+.info{font-size:.85rem;color:var(--text2);margin-bottom:14px;line-height:1.5}
+.formula{font-family:'Courier New',monospace;background:var(--surface2);padding:8px 14px;border-radius:6px;font-size:.85rem;color:var(--accent2);margin:10px 0;display:inline-block}
+.loading-msg{color:var(--text2);font-style:italic;padding:20px;text-align:center}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+<div class="container">
+<a href="index.html" class="back-link">← Back to Index</a>
+<h1>04 – Image Restoration</h1>
+<p class="subtitle">Degradation models, inverse filtering, and Wiener deconvolution</p>
+
+<!-- 1. Original Image -->
+<div class="section" id="sec-original">
+  <div class="section-header" onclick="toggleSection('sec-original')">
+    <h2>1 · Original Image</h2><span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div class="canvas-row"><div class="canvas-box">
+      <canvas id="cvOriginal" width="256" height="256"></canvas>
+      <div class="cap">data/image.jpg (resized to 256×256)</div>
+    </div></div>
+  </div>
+</div>
+
+<!-- 2. Degradation Examples -->
+<div class="section" id="sec-degrade">
+  <div class="section-header" onclick="toggleSection('sec-degrade')">
+    <h2>2 · Degradation Examples</h2><span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+
+    <!-- 2a Gaussian Blur -->
+    <h3 style="margin:10px 0 6px;font-size:1rem">Gaussian Blur</h3>
+    <div class="controls">
+      <div class="control-group"><label>σ</label><input type="range" id="gbSigma" min="1" max="15" step="0.5" value="3"><span class="val" id="gbSigmaVal">3</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvGBKernel" width="128" height="128"></canvas><div class="cap">Gaussian Kernel</div></div>
+      <div class="canvas-box"><canvas id="cvGBResult" width="256" height="256"></canvas><div class="cap">Blurred Image</div></div>
+    </div>
+
+    <hr style="border-color:var(--border);margin:20px 0">
+
+    <!-- 2b Motion Blur -->
+    <h3 style="margin:10px 0 6px;font-size:1rem">Motion Blur</h3>
+    <div class="controls">
+      <div class="control-group"><label>Length</label><input type="range" id="mbLen" min="1" max="64" value="15"><span class="val" id="mbLenVal">15</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvMBKernel" width="128" height="128"></canvas><div class="cap">Motion Kernel</div></div>
+      <div class="canvas-box"><canvas id="cvMBResult" width="256" height="256"></canvas><div class="cap">Motion-Blurred Image</div></div>
+    </div>
+
+    <hr style="border-color:var(--border);margin:20px 0">
+
+    <!-- 2c Additive Noise -->
+    <h3 style="margin:10px 0 6px;font-size:1rem">Additive Gaussian Noise</h3>
+    <div class="controls">
+      <div class="control-group"><label>Std Dev</label><input type="range" id="noiseStd" min="0" max="128" value="25"><span class="val" id="noiseStdVal">25</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvNoisePat" width="256" height="256"></canvas><div class="cap">Noise Pattern</div></div>
+      <div class="canvas-box"><canvas id="cvNoiseResult" width="256" height="256"></canvas><div class="cap">Noisy Image</div></div>
+    </div>
+
+    <hr style="border-color:var(--border);margin:20px 0">
+
+    <!-- 2d Downsampling -->
+    <h3 style="margin:10px 0 6px;font-size:1rem">Downsampling</h3>
+    <div class="controls">
+      <div class="control-group"><label>Factor</label><input type="range" id="dsFactor" min="1" max="16" value="4"><span class="val" id="dsFactorVal">4</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvDSOriginal" width="256" height="256"></canvas><div class="cap">Original</div></div>
+      <div class="canvas-box"><canvas id="cvDSResult" width="256" height="256"></canvas><div class="cap">Downsampled</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Inverse Filter Deblurring -->
+<div class="section" id="sec-inverse">
+  <div class="section-header" onclick="toggleSection('sec-inverse')">
+    <h2>3 · Inverse Filter Deblurring</h2><span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="info">Naive inverse filtering divides by H(u,v) in the frequency domain. Near-zero values of H amplify noise catastrophically.</p>
+    <div class="formula">Ĝ(u,v) = F(u,v) / H(u,v)</div>
+    <div class="controls">
+      <div class="control-group"><label>Blur σ</label><input type="range" id="invSigma" min="1" max="10" step="0.5" value="3"><span class="val" id="invSigmaVal">3</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvInvBlurred" width="200" height="200"></canvas><div class="cap">Blurred</div></div>
+      <div class="canvas-box"><canvas id="cvInvFTBlur" width="200" height="200"></canvas><div class="cap">|FT(Blurred)|</div></div>
+      <div class="canvas-box"><canvas id="cvInvFTH" width="200" height="200"></canvas><div class="cap">|FT(H)|</div></div>
+      <div class="canvas-box"><canvas id="cvInvFTDeblur" width="200" height="200"></canvas><div class="cap">|FT(Deblurred)|</div></div>
+      <div class="canvas-box"><canvas id="cvInvResult" width="200" height="200"></canvas><div class="cap">Deblurred</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Wiener Filter Deblurring -->
+<div class="section" id="sec-wiener">
+  <div class="section-header" onclick="toggleSection('sec-wiener')">
+    <h2>4 · Wiener Filter Deblurring</h2><span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="info">The Wiener filter balances deconvolution with noise suppression using a regularisation parameter K.</p>
+    <div class="formula">W(u,v) = H*(u,v) / (|H(u,v)|² + K)</div>
+    <div class="controls">
+      <div class="control-group"><label>Blur σ</label><input type="range" id="wSigma" min="1" max="10" step="0.5" value="3"><span class="val" id="wSigmaVal">3</span></div>
+      <div class="control-group"><label>K (noise ratio)</label><input type="range" id="wK" min="-6" max="0" step="0.1" value="-2"><span class="val" id="wKVal">0.01</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvWBlurred" width="200" height="200"></canvas><div class="cap">Blurred</div></div>
+      <div class="canvas-box"><canvas id="cvWFTBlur" width="200" height="200"></canvas><div class="cap">|FT(Blurred)|</div></div>
+      <div class="canvas-box"><canvas id="cvWFTWiener" width="200" height="200"></canvas><div class="cap">|FT(Wiener)|</div></div>
+      <div class="canvas-box"><canvas id="cvWFTDeblur" width="200" height="200"></canvas><div class="cap">|FT(Deblurred)|</div></div>
+      <div class="canvas-box"><canvas id="cvWResult" width="200" height="200"></canvas><div class="cap">Deblurred</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Motion Blur Wiener -->
+<div class="section" id="sec-motionwiener">
+  <div class="section-header" onclick="toggleSection('sec-motionwiener')">
+    <h2>5 · Motion Blur Wiener Deblurring</h2><span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <p class="info">Restore a motion-blurred image by estimating the motion angle, blur length, and noise ratio. Loaded from <code>data/image_ivy.jpg</code>.</p>
+    <div class="controls">
+      <div class="control-group"><label>Est. Angle (°)</label><input type="range" id="mwAngle" min="-90" max="90" step="1" value="0"><span class="val" id="mwAngleVal">0</span></div>
+      <div class="control-group"><label>Blur Length</label><input type="range" id="mwLen" min="1" max="64" value="20"><span class="val" id="mwLenVal">20</span></div>
+      <div class="control-group"><label>K (log₁₀)</label><input type="range" id="mwK" min="-6" max="0" step="0.1" value="-2"><span class="val" id="mwKVal">0.01</span></div>
+    </div>
+    <div class="canvas-row">
+      <div class="canvas-box"><canvas id="cvMWInput" width="256" height="256"></canvas><div class="cap">Motion-Blurred Input</div></div>
+      <div class="canvas-box"><canvas id="cvMWResult" width="256" height="256"></canvas><div class="cap">Wiener Deblurred</div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+"use strict";
+
+// ── Utility ──────────────────────────────────────────────────────────
+function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v}
+function nextPow2(n){let p=1;while(p<n)p<<=1;return p}
+
+// Box-Muller for Gaussian random
+function gaussRand(){let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+
+// ── Image loading helpers ────────────────────────────────────────────
+const SIZE = 256;
+let imgGray = null;   // Float64Array SIZE*SIZE, 0-255
+let ivyGray = null;
+
+const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+
+function loadImageGray(src, sz){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    if(location.protocol!=='file:')img.crossOrigin='anonymous';
+    const fn=src.split('/').pop();
+    img.onerror=()=>{if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub:',fn);img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}else{reject(new Error('Failed: '+src));}};
+    img.onload = ()=>{
+      const c = document.createElement("canvas");
+      c.width = sz; c.height = sz;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img,0,0,sz,sz);
+      const d = ctx.getImageData(0,0,sz,sz).data;
+      const g = new Float64Array(sz*sz);
+      for(let i=0;i<sz*sz;i++) g[i] = 0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+      resolve(g);
+    };
+    img.src = src;
+  });
+}
+
+function grayToCanvas(gray, cv, w, h){
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d");
+  const id = ctx.createImageData(w,h);
+  for(let i=0;i<w*h;i++){
+    const v = clamp(Math.round(gray[i]),0,255);
+    id.data[i*4]=v; id.data[i*4+1]=v; id.data[i*4+2]=v; id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+}
+
+function magnitudeToCanvas(re, im, cv, N, logScale){
+  cv.width = N; cv.height = N;
+  const mag = new Float64Array(N*N);
+  let mx = 0;
+  for(let i=0;i<N*N;i++){
+    mag[i] = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
+    if(logScale) mag[i] = Math.log(1+mag[i]);
+    if(mag[i]>mx) mx=mag[i];
+  }
+  if(mx===0) mx=1;
+  const ctx = cv.getContext("2d");
+  const id = ctx.createImageData(N,N);
+  for(let i=0;i<N*N;i++){
+    const v = clamp(Math.round(255*mag[i]/mx),0,255);
+    id.data[i*4]=v; id.data[i*4+1]=v; id.data[i*4+2]=v; id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+}
+
+// ── FFT ──────────────────────────────────────────────────────────────
+function fft1d(re, im, invert){
+  const n = re.length;
+  if(n===1) return;
+  // bit-reversal permutation
+  for(let i=1,j=0;i<n;i++){
+    let bit = n>>1;
+    for(;j&bit;bit>>=1) j^=bit;
+    j^=bit;
+    if(i<j){
+      let t=re[i];re[i]=re[j];re[j]=t;
+      t=im[i];im[i]=im[j];im[j]=t;
+    }
+  }
+  for(let len=2;len<=n;len<<=1){
+    const ang = 2*Math.PI/len*(invert?-1:1);
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for(let i=0;i<n;i+=len){
+      let curRe=1, curIm=0;
+      for(let j=0;j<len/2;j++){
+        const uRe=re[i+j], uIm=im[i+j];
+        const vRe=re[i+j+len/2]*curRe - im[i+j+len/2]*curIm;
+        const vIm=re[i+j+len/2]*curIm + im[i+j+len/2]*curRe;
+        re[i+j]=uRe+vRe; im[i+j]=uIm+vIm;
+        re[i+j+len/2]=uRe-vRe; im[i+j+len/2]=uIm-vIm;
+        const newCurRe = curRe*wRe - curIm*wIm;
+        curIm = curRe*wIm + curIm*wRe;
+        curRe = newCurRe;
+      }
+    }
+  }
+  if(invert) for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}
+}
+
+function fft2d(re, im, N, invert){
+  const rowRe = new Float64Array(N), rowIm = new Float64Array(N);
+  // rows
+  for(let y=0;y<N;y++){
+    const off = y*N;
+    for(let x=0;x<N;x++){rowRe[x]=re[off+x];rowIm[x]=im[off+x];}
+    fft1d(rowRe, rowIm, invert);
+    for(let x=0;x<N;x++){re[off+x]=rowRe[x];im[off+x]=rowIm[x];}
+  }
+  const colRe = new Float64Array(N), colIm = new Float64Array(N);
+  // columns
+  for(let x=0;x<N;x++){
+    for(let y=0;y<N;y++){colRe[y]=re[y*N+x];colIm[y]=im[y*N+x];}
+    fft1d(colRe, colIm, invert);
+    for(let y=0;y<N;y++){re[y*N+x]=colRe[y];im[y*N+x]=colIm[y];}
+  }
+}
+
+// shift zero-frequency to center
+function fftShift(arr, N){
+  const half = N>>1;
+  const tmp = new Float64Array(N*N);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const ny = (y+half)%N, nx = (x+half)%N;
+    tmp[ny*N+nx] = arr[y*N+x];
+  }
+  arr.set(tmp);
+}
+
+// prepare image for FFT: multiply by (-1)^(x+y) so DC is centered after FFT
+function prepareForFFT(gray, N){
+  const re = new Float64Array(N*N);
+  const im = new Float64Array(N*N);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    re[y*N+x] = gray[y*N+x] * ((x+y)%2===0?1:-1);
+  }
+  return {re, im};
+}
+
+function recoverFromFFT(re, N){
+  const out = new Float64Array(N*N);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    out[y*N+x] = re[y*N+x] * ((x+y)%2===0?1:-1);
+  }
+  return out;
+}
+
+// ── Kernels ──────────────────────────────────────────────────────────
+function gaussianKernel(sigma, size){
+  if(!size) size = Math.max(3, Math.ceil(sigma*6)|1);
+  if(size%2===0) size++;
+  const k = new Float64Array(size*size);
+  const c = (size-1)/2;
+  let sum = 0;
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+    const dx=x-c, dy=y-c;
+    const v = Math.exp(-(dx*dx+dy*dy)/(2*sigma*sigma));
+    k[y*size+x]=v; sum+=v;
+  }
+  for(let i=0;i<k.length;i++) k[i]/=sum;
+  return {kernel:k, size};
+}
+
+function motionKernel(length, angleDeg){
+  const ang = angleDeg * Math.PI/180;
+  const size = Math.max(length, 3);
+  const padSize = size%2===0 ? size+1 : size;
+  const k = new Float64Array(padSize*padSize);
+  const c = (padSize-1)/2;
+  let sum = 0;
+  const cosA = Math.cos(ang), sinA = Math.sin(ang);
+  for(let i=0;i<length;i++){
+    const t = i - (length-1)/2;
+    const px = Math.round(c + t*cosA);
+    const py = Math.round(c + t*sinA);
+    if(px>=0 && px<padSize && py>=0 && py<padSize){
+      k[py*padSize+px] = 1; sum++;
+    }
+  }
+  if(sum>0) for(let i=0;i<k.length;i++) k[i]/=sum;
+  return {kernel:k, size:padSize};
+}
+
+// Embed spatial kernel into NxN and FFT it (centered)
+function kernelToFreq(kernel, kSize, N){
+  const re = new Float64Array(N*N);
+  const im = new Float64Array(N*N);
+  const hk = (kSize-1)/2;
+  for(let y=0;y<kSize;y++) for(let x=0;x<kSize;x++){
+    const ny = ((y-hk)+N)%N;
+    const nx = ((x-hk)+N)%N;
+    re[ny*N+nx] = kernel[y*kSize+x];
+  }
+  // multiply by (-1)^(x+y)
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    re[y*N+x] *= ((x+y)%2===0?1:-1);
+  }
+  fft2d(re, im, N, false);
+  return {re, im};
+}
+
+// ── Spatial convolution (for degradation preview, faster than FFT for small kernels) ──
+function convolve(img, w, h, kernel, kSize){
+  const out = new Float64Array(w*h);
+  const hk = (kSize-1)>>1;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let sum=0;
+    for(let ky=0;ky<kSize;ky++) for(let kx=0;kx<kSize;kx++){
+      const iy = clamp(y+ky-hk,0,h-1);
+      const ix = clamp(x+kx-hk,0,w-1);
+      sum += img[iy*w+ix]*kernel[ky*kSize+kx];
+    }
+    out[y*w+x]=sum;
+  }
+  return out;
+}
+
+// ── Section toggling ─────────────────────────────────────────────────
+function toggleSection(id){
+  document.getElementById(id).classList.toggle("collapsed");
+}
+
+// ── Kernel visualization ─────────────────────────────────────────────
+function kernelToCanvas(kernel, kSize, cv){
+  const dSize = cv.width;
+  cv.height = dSize;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,dSize,dSize);
+  let mx=0;
+  for(let i=0;i<kSize*kSize;i++) if(kernel[i]>mx) mx=kernel[i];
+  if(mx===0) mx=1;
+  const cellW = dSize/kSize;
+  if(kSize<=32){
+    for(let y=0;y<kSize;y++) for(let x=0;x<kSize;x++){
+      const v = Math.round(255*kernel[y*kSize+x]/mx);
+      ctx.fillStyle=`rgb(${v},${v},${v})`;
+      ctx.fillRect(Math.floor(x*cellW),Math.floor(y*cellW),Math.ceil(cellW),Math.ceil(cellW));
+    }
+  } else {
+    const id = ctx.createImageData(kSize,kSize);
+    for(let i=0;i<kSize*kSize;i++){
+      const v=Math.round(255*kernel[i]/mx);
+      id.data[i*4]=v;id.data[i*4+1]=v;id.data[i*4+2]=v;id.data[i*4+3]=255;
+    }
+    const tc = document.createElement("canvas");
+    tc.width=kSize;tc.height=kSize;
+    tc.getContext("2d").putImageData(id,0,0);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(tc,0,0,dSize,dSize);
+  }
+}
+
+// ── Debounce helper ──────────────────────────────────────────────────
+function debounce(fn, ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+
+// ── Section 2a: Gaussian Blur ────────────────────────────────────────
+function updateGaussBlur(){
+  if(!imgGray) return;
+  const sigma = parseFloat(document.getElementById("gbSigma").value);
+  document.getElementById("gbSigmaVal").textContent = sigma;
+  const {kernel,size} = gaussianKernel(sigma);
+  kernelToCanvas(kernel, size, document.getElementById("cvGBKernel"));
+  const blurred = convolve(imgGray, SIZE, SIZE, kernel, size);
+  grayToCanvas(blurred, document.getElementById("cvGBResult"), SIZE, SIZE);
+}
+
+// ── Section 2b: Motion Blur ──────────────────────────────────────────
+function updateMotionBlur(){
+  if(!imgGray) return;
+  const len = parseInt(document.getElementById("mbLen").value);
+  document.getElementById("mbLenVal").textContent = len;
+  const {kernel,size} = motionKernel(len, 0);
+  kernelToCanvas(kernel, size, document.getElementById("cvMBKernel"));
+  const blurred = convolve(imgGray, SIZE, SIZE, kernel, size);
+  grayToCanvas(blurred, document.getElementById("cvMBResult"), SIZE, SIZE);
+}
+
+// ── Section 2c: Additive Noise ───────────────────────────────────────
+function updateNoise(){
+  if(!imgGray) return;
+  const std = parseFloat(document.getElementById("noiseStd").value);
+  document.getElementById("noiseStdVal").textContent = std;
+  const noise = new Float64Array(SIZE*SIZE);
+  const noisy = new Float64Array(SIZE*SIZE);
+  for(let i=0;i<SIZE*SIZE;i++){
+    const n = gaussRand()*std;
+    noise[i] = 128+n;
+    noisy[i] = clamp(imgGray[i]+n,0,255);
+  }
+  grayToCanvas(noise, document.getElementById("cvNoisePat"), SIZE, SIZE);
+  grayToCanvas(noisy, document.getElementById("cvNoiseResult"), SIZE, SIZE);
+}
+
+// ── Section 2d: Downsampling ─────────────────────────────────────────
+function updateDownsample(){
+  if(!imgGray) return;
+  const f = parseInt(document.getElementById("dsFactor").value);
+  document.getElementById("dsFactorVal").textContent = f;
+  grayToCanvas(imgGray, document.getElementById("cvDSOriginal"), SIZE, SIZE);
+  const nw = Math.max(1,Math.floor(SIZE/f)), nh = Math.max(1,Math.floor(SIZE/f));
+  const ds = new Float64Array(nw*nh);
+  for(let y=0;y<nh;y++) for(let x=0;x<nw;x++){
+    ds[y*nw+x] = imgGray[(y*f)*SIZE+(x*f)];
+  }
+  const cv = document.getElementById("cvDSResult");
+  cv.width=SIZE;cv.height=SIZE;
+  const tc = document.createElement("canvas");
+  tc.width=nw;tc.height=nh;
+  grayToCanvas(ds, tc, nw, nh);
+  const ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle="#000";ctx.fillRect(0,0,SIZE,SIZE);
+  ctx.drawImage(tc,0,0,SIZE,SIZE);
+}
+
+// ── Section 3: Inverse Filter ────────────────────────────────────────
+function updateInverse(){
+  if(!imgGray) return;
+  const sigma = parseFloat(document.getElementById("invSigma").value);
+  document.getElementById("invSigmaVal").textContent = sigma;
+  const N = SIZE;
+
+  // blur in spatial domain for display
+  const {kernel,size:kSize} = gaussianKernel(sigma);
+  const blurred = convolve(imgGray, N, N, kernel, kSize);
+  grayToCanvas(blurred, document.getElementById("cvInvBlurred"), N, N);
+
+  // FFT of blurred image
+  const {re:bRe, im:bIm} = prepareForFFT(blurred, N);
+  fft2d(bRe, bIm, N, false);
+
+  // display FT of blurred
+  magnitudeToCanvas(bRe, bIm, document.getElementById("cvInvFTBlur"), N, true);
+
+  // FFT of kernel
+  const H = kernelToFreq(kernel, kSize, N);
+  magnitudeToCanvas(H.re, H.im, document.getElementById("cvInvFTH"), N, true);
+
+  // Inverse filter: G = F/H (with small epsilon to prevent division by zero)
+  const gRe = new Float64Array(N*N);
+  const gIm = new Float64Array(N*N);
+  const eps = 1e-3;
+  for(let i=0;i<N*N;i++){
+    const hMag2 = H.re[i]*H.re[i]+H.im[i]*H.im[i];
+    const denom = hMag2 < eps ? eps : hMag2;
+    // (a+bi)/(c+di) = (ac+bd)/(c²+d²) + i(bc-ad)/(c²+d²)
+    gRe[i] = (bRe[i]*H.re[i]+bIm[i]*H.im[i])/denom;
+    gIm[i] = (bIm[i]*H.re[i]-bRe[i]*H.im[i])/denom;
+  }
+
+  magnitudeToCanvas(gRe, gIm, document.getElementById("cvInvFTDeblur"), N, true);
+
+  // IFFT
+  const rRe = new Float64Array(gRe);
+  const rIm = new Float64Array(gIm);
+  fft2d(rRe, rIm, N, true);
+  const result = recoverFromFFT(rRe, N);
+  grayToCanvas(result, document.getElementById("cvInvResult"), N, N);
+}
+
+// ── Section 4: Wiener Filter ─────────────────────────────────────────
+function updateWiener(){
+  if(!imgGray) return;
+  const sigma = parseFloat(document.getElementById("wSigma").value);
+  const K = Math.pow(10, parseFloat(document.getElementById("wK").value));
+  document.getElementById("wSigmaVal").textContent = sigma;
+  document.getElementById("wKVal").textContent = K.toExponential(2);
+  const N = SIZE;
+
+  const {kernel,size:kSize} = gaussianKernel(sigma);
+  const blurred = convolve(imgGray, N, N, kernel, kSize);
+  grayToCanvas(blurred, document.getElementById("cvWBlurred"), N, N);
+
+  const {re:bRe, im:bIm} = prepareForFFT(blurred, N);
+  fft2d(bRe, bIm, N, false);
+  magnitudeToCanvas(bRe, bIm, document.getElementById("cvWFTBlur"), N, true);
+
+  const H = kernelToFreq(kernel, kSize, N);
+
+  // Wiener: W = H* / (|H|^2 + K)
+  const wRe = new Float64Array(N*N);
+  const wIm = new Float64Array(N*N);
+  for(let i=0;i<N*N;i++){
+    const hMag2 = H.re[i]*H.re[i]+H.im[i]*H.im[i];
+    const denom = hMag2 + K;
+    wRe[i] = H.re[i]/denom;   // H* = (Hre, -Him), so H*re = Hre
+    wIm[i] = -H.im[i]/denom;  // H*im = -Him
+  }
+  magnitudeToCanvas(wRe, wIm, document.getElementById("cvWFTWiener"), N, true);
+
+  // Apply: G = W * F_blurred
+  const gRe = new Float64Array(N*N);
+  const gIm = new Float64Array(N*N);
+  for(let i=0;i<N*N;i++){
+    gRe[i] = wRe[i]*bRe[i] - wIm[i]*bIm[i];
+    gIm[i] = wRe[i]*bIm[i] + wIm[i]*bRe[i];
+  }
+  magnitudeToCanvas(gRe, gIm, document.getElementById("cvWFTDeblur"), N, true);
+
+  const rRe = new Float64Array(gRe);
+  const rIm = new Float64Array(gIm);
+  fft2d(rRe, rIm, N, true);
+  const result = recoverFromFFT(rRe, N);
+  grayToCanvas(result, document.getElementById("cvWResult"), N, N);
+}
+
+// ── Section 5: Motion Blur Wiener ────────────────────────────────────
+let ivyBlurred = null;
+
+function createMotionBlurredIvy(){
+  if(!ivyGray) return;
+  const blurLen = 20;
+  const {kernel,size:kSize} = motionKernel(blurLen, -15);
+  ivyBlurred = convolve(ivyGray, SIZE, SIZE, kernel, kSize);
+  grayToCanvas(ivyBlurred, document.getElementById("cvMWInput"), SIZE, SIZE);
+}
+
+function updateMotionWiener(){
+  if(!ivyBlurred) return;
+  const angle = parseFloat(document.getElementById("mwAngle").value);
+  const len = parseInt(document.getElementById("mwLen").value);
+  const K = Math.pow(10, parseFloat(document.getElementById("mwK").value));
+  document.getElementById("mwAngleVal").textContent = angle;
+  document.getElementById("mwLenVal").textContent = len;
+  document.getElementById("mwKVal").textContent = K.toExponential(2);
+  const N = SIZE;
+
+  const {kernel,size:kSize} = motionKernel(len, angle);
+  const H = kernelToFreq(kernel, kSize, N);
+
+  const {re:bRe, im:bIm} = prepareForFFT(ivyBlurred, N);
+  fft2d(bRe, bIm, N, false);
+
+  // Wiener
+  const gRe = new Float64Array(N*N);
+  const gIm = new Float64Array(N*N);
+  for(let i=0;i<N*N;i++){
+    const hMag2 = H.re[i]*H.re[i]+H.im[i]*H.im[i];
+    const denom = hMag2 + K;
+    const wRe = H.re[i]/denom;
+    const wIm = -H.im[i]/denom;
+    gRe[i] = wRe*bRe[i] - wIm*bIm[i];
+    gIm[i] = wRe*bIm[i] + wIm*bRe[i];
+  }
+
+  const rRe = new Float64Array(gRe);
+  const rIm = new Float64Array(gIm);
+  fft2d(rRe, rIm, N, true);
+  const result = recoverFromFFT(rRe, N);
+  grayToCanvas(result, document.getElementById("cvMWResult"), N, N);
+}
+
+// ── Wire up sliders ──────────────────────────────────────────────────
+function wireSlider(id, fn, delay){
+  const el = document.getElementById(id);
+  const dfn = debounce(fn, delay||80);
+  el.addEventListener("input", dfn);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+async function init(){
+  try{
+    imgGray = await loadImageGray("data/image.jpg", SIZE);
+  }catch(e){
+    console.error("Failed to load image.jpg", e);
+    return;
+  }
+
+  // Section 1
+  grayToCanvas(imgGray, document.getElementById("cvOriginal"), SIZE, SIZE);
+
+  // Section 2
+  updateGaussBlur();
+  updateMotionBlur();
+  updateNoise();
+  updateDownsample();
+
+  wireSlider("gbSigma", updateGaussBlur);
+  wireSlider("mbLen", updateMotionBlur);
+  wireSlider("noiseStd", updateNoise);
+  wireSlider("dsFactor", updateDownsample);
+
+  // Section 3
+  updateInverse();
+  wireSlider("invSigma", updateInverse, 150);
+
+  // Section 4
+  updateWiener();
+  wireSlider("wSigma", updateWiener, 150);
+  wireSlider("wK", updateWiener, 150);
+
+  // Section 5
+  try{
+    ivyGray = await loadImageGray("data/image_ivy.jpg", SIZE);
+    createMotionBlurredIvy();
+    updateMotionWiener();
+    wireSlider("mwAngle", updateMotionWiener, 150);
+    wireSlider("mwLen", updateMotionWiener, 150);
+    wireSlider("mwK", updateMotionWiener, 150);
+  }catch(e){
+    console.error("Failed to load image_ivy.jpg", e);
+  }
+}
+
+init();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

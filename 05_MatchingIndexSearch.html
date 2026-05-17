@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 – Matching, Indexing &amp; Search</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181a20;
+  --surface2: #23262f;
+  --border: #2e3140;
+  --text: #e0e0e6;
+  --text-dim: #8a8d9b;
+  --accent: #7c8cf8;
+  --accent2: #5eead4;
+  --accent3: #f472b6;
+  --accent4: #fbbf24;
+  --radius: 12px;
+}
+[data-theme="light"] {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface2: #ecedf3;
+  --border: #d5d7e2;
+  --text: #1a1d2e;
+  --text-dim: #5c6078;
+  --accent: #5a6ad8;
+  --accent2: #2eb5a0;
+  --accent3: #d4408a;
+  --accent4: #d99a10;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding: 2rem;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.back-link:hover { opacity: 1; }
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.05rem; }
+
+/* Collapsible sections */
+details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+summary {
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 600;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: background 0.2s;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: '▶';
+  font-size: 0.7rem;
+  transition: transform 0.25s;
+  color: var(--accent);
+}
+details[open] > summary::before { transform: rotate(90deg); }
+summary:hover { background: var(--surface2); }
+.section-body { padding: 1.5rem; border-top: 1px solid var(--border); }
+.section-tag {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--surface2);
+  border-radius: 8px;
+}
+.control-group { display: flex; align-items: center; gap: 0.5rem; }
+label { font-size: 0.85rem; color: var(--text-dim); }
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.val-display {
+  min-width: 3em;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--accent2);
+}
+select, button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+button:hover { border-color: var(--accent); }
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+button.primary:hover { opacity: 0.9; }
+
+/* Canvas containers */
+.canvas-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1rem 0;
+}
+.canvas-box {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 0.5rem;
+  text-align: center;
+}
+.canvas-box canvas { display: block; border-radius: 4px; }
+.canvas-box .caption {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+}
+.info-box {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding: 0.8rem 1rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.info-box code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.82rem;
+}
+
+/* Histogram */
+.hist-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1rem 0;
+}
+.hist-card {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 0.7rem;
+  text-align: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+}
+.hist-card canvas { width: 100%; }
+.hist-card .caption { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.3rem; }
+
+.homography-container {
+  position: relative;
+  display: inline-block;
+}
+.point-marker {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+.status-bar {
+  background: var(--surface2);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--accent2);
+  margin: 0.5rem 0;
+}
+
+/* LoG multi-plot grid */
+.log-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+.log-cell {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 0.4rem;
+  text-align: center;
+}
+.log-cell canvas { width: 100%; border-radius: 4px; }
+.log-cell .caption { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+.formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--accent2);
+  background: var(--bg);
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin: 0.8rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.loading-msg {
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+<a href="index.html" class="back-link">← Back to Index</a>
+<h1>05 – Matching, Indexing &amp; Search</h1>
+<p class="subtitle">SIFT keypoints, feature matching, bag of visual words, homography, and scale-space analysis</p>
+
+<!-- ==================== SECTION 1: SIFT ==================== -->
+<details open>
+<summary>1. SIFT Keypoint Detection <span class="section-tag">interest points</span></summary>
+<div class="section-body">
+  <div class="info-box">
+    <strong>SIFT</strong> (Scale-Invariant Feature Transform) detects keypoints at multiple scales by finding
+    extrema in a Difference-of-Gaussians (DoG) pyramid. Below we approximate interest-point detection using a
+    <strong>Harris corner detector</strong> implemented in JavaScript — computing image gradients, the structure
+    tensor, and the Harris response <code>R = det(M) − k·trace(M)²</code>.
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label>Harris k:</label>
+      <input type="range" id="harris-k" min="0.01" max="0.15" step="0.005" value="0.04">
+      <span class="val-display" id="harris-k-val">0.04</span>
+    </div>
+    <div class="control-group">
+      <label>Threshold %:</label>
+      <input type="range" id="harris-thresh" min="0.01" max="0.5" step="0.01" value="0.1">
+      <span class="val-display" id="harris-thresh-val">10%</span>
+    </div>
+    <div class="control-group">
+      <label>NMS radius:</label>
+      <input type="range" id="harris-nms" min="3" max="20" step="1" value="8">
+      <span class="val-display" id="harris-nms-val">8</span>
+    </div>
+  </div>
+  <div class="canvas-row" id="sift-canvases">
+    <div class="loading-msg" id="sift-loading">Loading images…</div>
+  </div>
+</div>
+</details>
+
+<!-- ==================== SECTION 2: Feature Matching ==================== -->
+<details>
+<summary>2. Feature Matching <span class="section-tag">patch descriptors</span></summary>
+<div class="section-body">
+  <div class="info-box">
+    Feature matching pairs keypoints between images using descriptor similarity. Here we extract small
+    <strong>grayscale patches</strong> around detected corners and match them via <strong>normalised cross-correlation (NCC)</strong>.
+    Lines connect the best matches; green = strong match, yellow = weaker.
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label>Image pair:</label>
+      <select id="match-pair">
+        <option value="0,1">Church 1 ↔ Church 2</option>
+        <option value="0,2">Church 1 ↔ Church 3</option>
+        <option value="1,2">Church 2 ↔ Church 3</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Max matches:</label>
+      <input type="range" id="match-count" min="5" max="60" step="1" value="25">
+      <span class="val-display" id="match-count-val">25</span>
+    </div>
+    <div class="control-group">
+      <label>Patch size:</label>
+      <input type="range" id="patch-size" min="5" max="21" step="2" value="11">
+      <span class="val-display" id="patch-size-val">11</span>
+    </div>
+    <div class="control-group">
+      <button class="primary" onclick="runMatching()">Run Matching</button>
+    </div>
+  </div>
+  <div class="canvas-row">
+    <div class="canvas-box">
+      <canvas id="match-canvas" width="800" height="400"></canvas>
+    </div>
+  </div>
+</div>
+</details>
+
+<!-- ==================== SECTION 3: BoVW ==================== -->
+<details>
+<summary>3. Bag of Visual Words <span class="section-tag">image retrieval</span></summary>
+<div class="section-body">
+  <div class="info-box">
+    <strong>Bag of Visual Words</strong> represents each image as a histogram over a vocabulary of "visual words"
+    (cluster centres from k-means on local descriptors). Similar images produce similar histograms.
+    Here we use <strong>colour-patch features</strong> as a proxy for SIFT descriptors, then cluster with k-means.
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label>K (visual words):</label>
+      <input type="range" id="bovw-k" min="3" max="20" step="1" value="8">
+      <span class="val-display" id="bovw-k-val">8</span>
+    </div>
+    <div class="control-group">
+      <label>Patch grid:</label>
+      <input type="range" id="bovw-grid" min="4" max="16" step="1" value="8">
+      <span class="val-display" id="bovw-grid-val">8×8</span>
+    </div>
+    <div class="control-group">
+      <button class="primary" onclick="runBoVW()">Compute BoVW</button>
+    </div>
+  </div>
+  <div class="canvas-row" id="bovw-images"></div>
+  <div id="bovw-histograms"></div>
+  <div id="bovw-similarity" style="margin-top:1rem;"></div>
+</div>
+</details>
+
+<!-- ==================== SECTION 4: Homography ==================== -->
+<details>
+<summary>4. Homography Warping <span class="section-tag">projective transform</span></summary>
+<div class="section-body">
+  <div class="info-box">
+    A <strong>homography</strong> is a 3×3 projective transformation mapping points from one plane to another.
+    Given 4 point correspondences we can solve for the 8 degrees of freedom. Click 4 points on each image
+    (in matching order) to define the mapping, or use presets.
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label>Preset:</label>
+      <select id="homography-preset" onchange="loadHomographyPreset()">
+        <option value="custom">Custom (click points)</option>
+        <option value="preset1">Church 1 → 2 (corners)</option>
+        <option value="preset2">Perspective warp demo</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <button onclick="clearHomographyPoints()">Clear Points</button>
+      <button class="primary" onclick="computeHomography()">Warp</button>
+    </div>
+  </div>
+  <div class="status-bar" id="homography-status">Click 4 points on the left image, then 4 on the right image.</div>
+  <div class="canvas-row">
+    <div class="canvas-box">
+      <canvas id="homo-src" width="400" height="300" style="cursor:crosshair"></canvas>
+      <div class="caption">Source image (click 4 pts)</div>
+    </div>
+    <div class="canvas-box">
+      <canvas id="homo-dst" width="400" height="300" style="cursor:crosshair"></canvas>
+      <div class="caption">Destination image (click 4 pts)</div>
+    </div>
+    <div class="canvas-box">
+      <canvas id="homo-result" width="400" height="300"></canvas>
+      <div class="caption">Warped result</div>
+    </div>
+  </div>
+</div>
+</details>
+
+<!-- ==================== SECTION 5: LoG ==================== -->
+<details>
+<summary>5. Laplacian of Gaussian (LoG) <span class="section-tag">scale space</span></summary>
+<div class="section-body">
+  <div class="info-box">
+    The <strong>Laplacian of Gaussian</strong> is used for blob detection and edge detection in scale space.
+    For a 1D signal, LoG highlights zero-crossings that correspond to edges.
+  </div>
+  <div class="formula">
+    LoG(x) = −1/(π·σ⁴) · (1 − x²/σ²) · exp(−x² / (2σ²))
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label>σ (interactive):</label>
+      <input type="range" id="log-sigma" min="0.01" max="0.5" step="0.005" value="0.1">
+      <span class="val-display" id="log-sigma-val">0.100</span>
+    </div>
+    <div class="control-group">
+      <label>Signal:</label>
+      <select id="log-signal" onchange="renderLoGInteractive()">
+        <option value="step">Step function</option>
+        <option value="rect">Rectangle pulse</option>
+        <option value="gaussian">Gaussian bump</option>
+      </select>
+    </div>
+  </div>
+  <div class="canvas-row">
+    <div class="canvas-box">
+      <canvas id="log-signal-canvas" width="280" height="180"></canvas>
+      <div class="caption">Input signal</div>
+    </div>
+    <div class="canvas-box">
+      <canvas id="log-kernel-canvas" width="280" height="180"></canvas>
+      <div class="caption">LoG kernel</div>
+    </div>
+    <div class="canvas-box">
+      <canvas id="log-result-canvas" width="280" height="180"></canvas>
+      <div class="caption">Convolution result</div>
+    </div>
+  </div>
+  <h3 style="margin:1.5rem 0 0.5rem; font-size:1rem;">Multi-scale LoG responses (8 σ values)</h3>
+  <div class="log-grid" id="log-multiscale"></div>
+</div>
+</details>
+
+<script>
+// ============================================================
+// GLOBALS & IMAGE LOADING
+// ============================================================
+const IMG_MAX = 400;
+const IMG_SRCS = [
+  'data/image_cc_1.jpg',
+  'data/image_cc_2.jpg',
+  'data/image_cc_3.jpg',
+  'data/image_bridge.jpg'
+];
+const IMG_NAMES = ['Church 1', 'Church 2', 'Church 3', 'Bridge'];
+const loadedImages = [];
+const grayImages = [];
+const smallCanvases = [];
+
+const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    if(location.protocol!=='file:')img.crossOrigin='anonymous';
+    img.onload = () => resolve(img);
+    const fn=src.split('/').pop();
+    img.onerror = () => {
+      if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub:',fn);img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}
+      else{reject(new Error('Failed to load ' + src));}
+    };
+    img.src = src;
+  });
+}
+
+function downscale(img, maxW) {
+  const scale = Math.min(1, maxW / img.width);
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  return { canvas: c, ctx, w, h, data: ctx.getImageData(0, 0, w, h) };
+}
+
+function toGrayscale(imgData) {
+  const { width, height, data } = imgData;
+  const gray = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    gray[i] = (0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2]) / 255;
+  }
+  return { gray, width, height };
+}
+
+// ============================================================
+// HARRIS CORNER DETECTION
+// ============================================================
+function gaussianKernel1D(sigma, radius) {
+  const size = 2 * radius + 1;
+  const k = new Float32Array(size);
+  let sum = 0;
+  for (let i = 0; i < size; i++) {
+    const x = i - radius;
+    k[i] = Math.exp(-x * x / (2 * sigma * sigma));
+    sum += k[i];
+  }
+  for (let i = 0; i < size; i++) k[i] /= sum;
+  return k;
+}
+
+function separableConvolve(src, w, h, kernel) {
+  const r = (kernel.length - 1) / 2;
+  const tmp = new Float32Array(w * h);
+  const dst = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let k = -r; k <= r; k++) {
+        const xx = Math.min(w - 1, Math.max(0, x + k));
+        s += src[y * w + xx] * kernel[k + r];
+      }
+      tmp[y * w + x] = s;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let k = -r; k <= r; k++) {
+        const yy = Math.min(h - 1, Math.max(0, y + k));
+        s += tmp[yy * w + x] * kernel[k + r];
+      }
+      dst[y * w + x] = s;
+    }
+  }
+  return dst;
+}
+
+function harrisCorners(grayObj, kParam, threshPct, nmsRadius) {
+  const { gray, width: w, height: h } = grayObj;
+  const Ix = new Float32Array(w * h);
+  const Iy = new Float32Array(w * h);
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      Ix[y * w + x] = (gray[y * w + x + 1] - gray[y * w + x - 1]) * 0.5;
+      Iy[y * w + x] = (gray[(y + 1) * w + x] - gray[(y - 1) * w + x]) * 0.5;
+    }
+  }
+
+  const Ixx = new Float32Array(w * h);
+  const Iyy = new Float32Array(w * h);
+  const Ixy = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    Ixx[i] = Ix[i] * Ix[i];
+    Iyy[i] = Iy[i] * Iy[i];
+    Ixy[i] = Ix[i] * Iy[i];
+  }
+
+  const gk = gaussianKernel1D(2.0, 3);
+  const Sxx = separableConvolve(Ixx, w, h, gk);
+  const Syy = separableConvolve(Iyy, w, h, gk);
+  const Sxy = separableConvolve(Ixy, w, h, gk);
+
+  const R = new Float32Array(w * h);
+  let maxR = 0;
+  for (let i = 0; i < w * h; i++) {
+    const det = Sxx[i] * Syy[i] - Sxy[i] * Sxy[i];
+    const trace = Sxx[i] + Syy[i];
+    R[i] = det - kParam * trace * trace;
+    if (R[i] > maxR) maxR = R[i];
+  }
+
+  const thresh = threshPct * maxR;
+  const corners = [];
+  const r = nmsRadius;
+  for (let y = r; y < h - r; y++) {
+    for (let x = r; x < w - r; x++) {
+      const v = R[y * w + x];
+      if (v < thresh) continue;
+      let isMax = true;
+      for (let dy = -r; dy <= r && isMax; dy++) {
+        for (let dx = -r; dx <= r && isMax; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (R[(y + dy) * w + (x + dx)] > v) isMax = false;
+        }
+      }
+      if (isMax) corners.push({ x, y, response: v });
+    }
+  }
+  corners.sort((a, b) => b.response - a.response);
+  return corners.slice(0, 300);
+}
+
+function drawCorners(canvas, imgData, corners) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = imgData.width;
+  canvas.height = imgData.height;
+  ctx.putImageData(imgData, 0, 0);
+  corners.forEach((c, i) => {
+    const t = Math.min(1, c.response / (corners[0]?.response || 1));
+    const r = 3 + t * 3;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsl(${160 + t * 60}, 90%, 65%)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
+// ============================================================
+// SECTION 1: SIFT / Harris
+// ============================================================
+function renderHarris() {
+  const kParam = parseFloat(document.getElementById('harris-k').value);
+  const thresh = parseFloat(document.getElementById('harris-thresh').value);
+  const nms = parseInt(document.getElementById('harris-nms').value);
+  document.getElementById('harris-k-val').textContent = kParam.toFixed(3);
+  document.getElementById('harris-thresh-val').textContent = Math.round(thresh * 100) + '%';
+  document.getElementById('harris-nms-val').textContent = nms;
+
+  const container = document.getElementById('sift-canvases');
+  container.innerHTML = '';
+
+  for (let i = 0; i < loadedImages.length; i++) {
+    const corners = harrisCorners(grayImages[i], kParam, thresh, nms);
+    const box = document.createElement('div');
+    box.className = 'canvas-box';
+    const c = document.createElement('canvas');
+    drawCorners(c, smallCanvases[i].data, corners);
+    box.appendChild(c);
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.textContent = `${IMG_NAMES[i]} — ${corners.length} keypoints`;
+    box.appendChild(cap);
+    container.appendChild(box);
+  }
+}
+
+// ============================================================
+// SECTION 2: Feature Matching
+// ============================================================
+function extractPatches(grayObj, corners, patchSize) {
+  const half = Math.floor(patchSize / 2);
+  const { gray, width: w, height: h } = grayObj;
+  return corners.filter(c =>
+    c.x >= half && c.x < w - half && c.y >= half && c.y < h - half
+  ).map(c => {
+    const patch = new Float32Array(patchSize * patchSize);
+    let mean = 0;
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const v = gray[(c.y + dy) * w + (c.x + dx)];
+        patch[(dy + half) * patchSize + (dx + half)] = v;
+        mean += v;
+      }
+    }
+    mean /= patchSize * patchSize;
+    let std = 0;
+    for (let j = 0; j < patch.length; j++) {
+      patch[j] -= mean;
+      std += patch[j] * patch[j];
+    }
+    std = Math.sqrt(std / patch.length) || 1;
+    for (let j = 0; j < patch.length; j++) patch[j] /= std;
+    return { ...c, patch };
+  });
+}
+
+function ncc(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += a[i] * b[i];
+  return sum / a.length;
+}
+
+function runMatching() {
+  const [iA, iB] = document.getElementById('match-pair').value.split(',').map(Number);
+  const maxMatches = parseInt(document.getElementById('match-count').value);
+  const patchSize = parseInt(document.getElementById('patch-size').value);
+
+  document.getElementById('match-count-val').textContent = maxMatches;
+  document.getElementById('patch-size-val').textContent = patchSize;
+
+  const kParam = parseFloat(document.getElementById('harris-k').value);
+  const thresh = parseFloat(document.getElementById('harris-thresh').value);
+  const nms = parseInt(document.getElementById('harris-nms').value);
+
+  const cornersA = harrisCorners(grayImages[iA], kParam, thresh, nms);
+  const cornersB = harrisCorners(grayImages[iB], kParam, thresh, nms);
+
+  const patchesA = extractPatches(grayImages[iA], cornersA, patchSize);
+  const patchesB = extractPatches(grayImages[iB], cornersB, patchSize);
+
+  const matches = [];
+  for (const pa of patchesA) {
+    let bestScore = -Infinity, bestIdx = -1;
+    for (let j = 0; j < patchesB.length; j++) {
+      const score = ncc(pa.patch, patchesB[j].patch);
+      if (score > bestScore) { bestScore = score; bestIdx = j; }
+    }
+    if (bestIdx >= 0) matches.push({ a: pa, b: patchesB[bestIdx], score: bestScore });
+  }
+  matches.sort((a, b) => b.score - a.score);
+  const topMatches = matches.slice(0, maxMatches);
+
+  const canvas = document.getElementById('match-canvas');
+  const wA = smallCanvases[iA].w, hA = smallCanvases[iA].h;
+  const wB = smallCanvases[iB].w, hB = smallCanvases[iB].h;
+  canvas.width = wA + wB + 10;
+  canvas.height = Math.max(hA, hB);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#181a20';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.putImageData(smallCanvases[iA].data, 0, 0);
+  ctx.putImageData(smallCanvases[iB].data, wA + 10, 0);
+
+  const maxScore = topMatches[0]?.score || 1;
+  const minScore = topMatches[topMatches.length - 1]?.score || 0;
+  topMatches.forEach(m => {
+    const t = (m.score - minScore) / (maxScore - minScore + 1e-8);
+    ctx.beginPath();
+    ctx.moveTo(m.a.x, m.a.y);
+    ctx.lineTo(m.b.x + wA + 10, m.b.y);
+    const hue = 60 + t * 80;
+    ctx.strokeStyle = `hsla(${hue}, 85%, 60%, ${0.3 + t * 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(m.a.x, m.a.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${hue}, 90%, 65%)`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(m.b.x + wA + 10, m.b.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ============================================================
+// SECTION 3: Bag of Visual Words
+// ============================================================
+function extractColorPatches(imgDataObj, gridSize) {
+  const { data, width: w, height: h } = imgDataObj;
+  const d = data.data;
+  const cellW = Math.floor(w / gridSize);
+  const cellH = Math.floor(h / gridSize);
+  const features = [];
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      const feat = new Float32Array(12);
+      let count = 0;
+      for (let y = gy * cellH; y < (gy + 1) * cellH && y < h; y++) {
+        for (let x = gx * cellW; x < (gx + 1) * cellW && x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const r = d[idx] / 255, g = d[idx+1] / 255, b = d[idx+2] / 255;
+          const bin_r = Math.min(3, Math.floor(r * 4));
+          const bin_g = Math.min(3, Math.floor(g * 4));
+          const bin_b = Math.min(3, Math.floor(b * 4));
+          feat[bin_r] += 1;
+          feat[4 + bin_g] += 1;
+          feat[8 + bin_b] += 1;
+          count++;
+        }
+      }
+      if (count > 0) for (let i = 0; i < 12; i++) feat[i] /= count;
+      features.push(feat);
+    }
+  }
+  return features;
+}
+
+function kmeans(features, K, maxIter = 30) {
+  const dim = features[0].length;
+  const N = features.length;
+  const centroids = [];
+  const used = new Set();
+  while (centroids.length < K) {
+    const idx = Math.floor(Math.random() * N);
+    if (!used.has(idx)) {
+      used.add(idx);
+      centroids.push(new Float32Array(features[idx]));
+    }
+  }
+  const assignments = new Int32Array(N);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let changed = false;
+    for (let i = 0; i < N; i++) {
+      let bestDist = Infinity, bestC = 0;
+      for (let c = 0; c < K; c++) {
+        let dist = 0;
+        for (let d = 0; d < dim; d++) {
+          const diff = features[i][d] - centroids[c][d];
+          dist += diff * diff;
+        }
+        if (dist < bestDist) { bestDist = dist; bestC = c; }
+      }
+      if (assignments[i] !== bestC) { assignments[i] = bestC; changed = true; }
+    }
+    if (!changed) break;
+
+    for (let c = 0; c < K; c++) {
+      const newC = new Float32Array(dim);
+      let cnt = 0;
+      for (let i = 0; i < N; i++) {
+        if (assignments[i] === c) {
+          for (let d = 0; d < dim; d++) newC[d] += features[i][d];
+          cnt++;
+        }
+      }
+      if (cnt > 0) for (let d = 0; d < dim; d++) centroids[c][d] = newC[d] / cnt;
+    }
+  }
+  return { centroids, assignments };
+}
+
+function buildHistogram(assignments, K) {
+  const hist = new Float32Array(K);
+  for (let i = 0; i < assignments.length; i++) hist[assignments[i]]++;
+  let sum = 0;
+  for (let i = 0; i < K; i++) sum += hist[i];
+  if (sum > 0) for (let i = 0; i < K; i++) hist[i] /= sum;
+  return hist;
+}
+
+function histogramSimilarity(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += Math.min(a[i], b[i]);
+  return sum;
+}
+
+const bovwColors = [
+  '#7c8cf8','#5eead4','#f472b6','#fbbf24','#a78bfa',
+  '#34d399','#fb923c','#60a5fa','#f87171','#4ade80',
+  '#e879f9','#facc15','#38bdf8','#fb7185','#a3e635',
+  '#c084fc','#2dd4bf','#fcd34d','#818cf8','#6ee7b7'
+];
+
+function drawHistogram(canvas, hist, K) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#181a20';
+  ctx.fillRect(0, 0, W, H);
+  const maxVal = Math.max(...hist, 0.01);
+  const barW = (W - 20) / K;
+  for (let i = 0; i < K; i++) {
+    const barH = (hist[i] / maxVal) * (H - 30);
+    ctx.fillStyle = bovwColors[i % bovwColors.length];
+    ctx.fillRect(10 + i * barW + 2, H - 15 - barH, barW - 4, barH);
+    ctx.fillStyle = '#8a8d9b';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(i + 1, 10 + i * barW + barW / 2, H - 3);
+  }
+}
+
+function runBoVW() {
+  const K = parseInt(document.getElementById('bovw-k').value);
+  const gridSize = parseInt(document.getElementById('bovw-grid').value);
+  document.getElementById('bovw-k-val').textContent = K;
+  document.getElementById('bovw-grid-val').textContent = gridSize + '×' + gridSize;
+
+  const allFeatures = [];
+  const imageFeatures = [];
+  const featureOffsets = [0];
+  for (let i = 0; i < loadedImages.length; i++) {
+    const feats = extractColorPatches(smallCanvases[i], gridSize);
+    imageFeatures.push(feats);
+    allFeatures.push(...feats);
+    featureOffsets.push(allFeatures.length);
+  }
+
+  const { centroids, assignments } = kmeans(allFeatures, K);
+
+  const histograms = [];
+  for (let i = 0; i < loadedImages.length; i++) {
+    const start = featureOffsets[i], end = featureOffsets[i + 1];
+    const imgAssignments = assignments.slice(start, end);
+    histograms.push(buildHistogram(imgAssignments, K));
+  }
+
+  const imgContainer = document.getElementById('bovw-images');
+  imgContainer.innerHTML = '';
+  for (let i = 0; i < loadedImages.length; i++) {
+    const box = document.createElement('div');
+    box.className = 'canvas-box';
+    const c = document.createElement('canvas');
+    c.width = smallCanvases[i].w;
+    c.height = smallCanvases[i].h;
+    c.getContext('2d').putImageData(smallCanvases[i].data, 0, 0);
+    c.style.maxWidth = '200px';
+    c.style.height = 'auto';
+    box.appendChild(c);
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.textContent = IMG_NAMES[i];
+    box.appendChild(cap);
+    imgContainer.appendChild(box);
+  }
+
+  const histContainer = document.getElementById('bovw-histograms');
+  histContainer.innerHTML = '<h3 style="margin:0.5rem 0;font-size:0.95rem;">Visual Word Histograms</h3>';
+  const histRow = document.createElement('div');
+  histRow.className = 'hist-row';
+  for (let i = 0; i < loadedImages.length; i++) {
+    const card = document.createElement('div');
+    card.className = 'hist-card';
+    const c = document.createElement('canvas');
+    c.width = 250; c.height = 120;
+    drawHistogram(c, histograms[i], K);
+    card.appendChild(c);
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.textContent = IMG_NAMES[i];
+    card.appendChild(cap);
+    histRow.appendChild(card);
+  }
+  histContainer.appendChild(histRow);
+
+  const simContainer = document.getElementById('bovw-similarity');
+  let simHTML = '<h3 style="margin:0.5rem 0;font-size:0.95rem;">Histogram Intersection Similarity</h3>';
+  simHTML += '<div style="display:grid;grid-template-columns:auto repeat(' + loadedImages.length + ',1fr);gap:2px;max-width:500px;font-size:0.82rem;">';
+  simHTML += '<div></div>';
+  for (let j = 0; j < loadedImages.length; j++) {
+    simHTML += `<div style="text-align:center;color:var(--text-dim);padding:4px;">${IMG_NAMES[j]}</div>`;
+  }
+  for (let i = 0; i < loadedImages.length; i++) {
+    simHTML += `<div style="color:var(--text-dim);padding:4px;">${IMG_NAMES[i]}</div>`;
+    for (let j = 0; j < loadedImages.length; j++) {
+      const sim = histogramSimilarity(histograms[i], histograms[j]);
+      const bg = `rgba(124,140,248,${sim * 0.8})`;
+      simHTML += `<div style="text-align:center;background:${bg};padding:4px;border-radius:4px;">${sim.toFixed(3)}</div>`;
+    }
+  }
+  simHTML += '</div>';
+  simContainer.innerHTML = simHTML;
+}
+
+// ============================================================
+// SECTION 4: Homography
+// ============================================================
+let homoSrcPts = [], homoDstPts = [];
+let homoSrcImg, homoDstImg;
+
+function initHomography() {
+  homoSrcImg = smallCanvases[0];
+  homoDstImg = smallCanvases[1];
+  drawHomoImage('homo-src', homoSrcImg);
+  drawHomoImage('homo-dst', homoDstImg);
+
+  document.getElementById('homo-src').addEventListener('click', e => {
+    if (homoSrcPts.length >= 4) return;
+    const rect = e.target.getBoundingClientRect();
+    const sx = homoSrcImg.w / e.target.clientWidth;
+    const sy = homoSrcImg.h / e.target.clientHeight;
+    const x = (e.clientX - rect.left) * sx;
+    const y = (e.clientY - rect.top) * sy;
+    homoSrcPts.push([x, y]);
+    drawHomoImage('homo-src', homoSrcImg, homoSrcPts, '#7c8cf8');
+    updateHomoStatus();
+  });
+
+  document.getElementById('homo-dst').addEventListener('click', e => {
+    if (homoDstPts.length >= 4) return;
+    const rect = e.target.getBoundingClientRect();
+    const sx = homoDstImg.w / e.target.clientWidth;
+    const sy = homoDstImg.h / e.target.clientHeight;
+    const x = (e.clientX - rect.left) * sx;
+    const y = (e.clientY - rect.top) * sy;
+    homoDstPts.push([x, y]);
+    drawHomoImage('homo-dst', homoDstImg, homoDstPts, '#f472b6');
+    updateHomoStatus();
+  });
+}
+
+function drawHomoImage(canvasId, imgObj, pts, color) {
+  const c = document.getElementById(canvasId);
+  c.width = imgObj.w; c.height = imgObj.h;
+  const ctx = c.getContext('2d');
+  ctx.putImageData(imgObj.data, 0, 0);
+  if (pts) {
+    pts.forEach((p, i) => {
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+      ctx.fillStyle = color || '#7c8cf8';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(i + 1, p[0], p[1]);
+    });
+  }
+}
+
+function updateHomoStatus() {
+  const el = document.getElementById('homography-status');
+  el.textContent = `Source: ${homoSrcPts.length}/4 points | Destination: ${homoDstPts.length}/4 points`;
+  if (homoSrcPts.length === 4 && homoDstPts.length === 4) {
+    el.textContent += ' — Ready! Click "Warp".';
+  }
+}
+
+function clearHomographyPoints() {
+  homoSrcPts = [];
+  homoDstPts = [];
+  drawHomoImage('homo-src', homoSrcImg);
+  drawHomoImage('homo-dst', homoDstImg);
+  const rc = document.getElementById('homo-result');
+  rc.getContext('2d').clearRect(0, 0, rc.width, rc.height);
+  updateHomoStatus();
+}
+
+function loadHomographyPreset() {
+  const v = document.getElementById('homography-preset').value;
+  if (v === 'custom') {
+    clearHomographyPoints();
+    return;
+  }
+  const w1 = homoSrcImg.w, h1 = homoSrcImg.h;
+  const w2 = homoDstImg.w, h2 = homoDstImg.h;
+  if (v === 'preset1') {
+    const m = 0.15;
+    homoSrcPts = [[w1*m, h1*m],[w1*(1-m), h1*m],[w1*(1-m), h1*(1-m)],[w1*m, h1*(1-m)]];
+    homoDstPts = [[w2*m, h2*m],[w2*(1-m), h2*m],[w2*(1-m), h2*(1-m)],[w2*m, h2*(1-m)]];
+  } else if (v === 'preset2') {
+    homoSrcPts = [[0,0],[w1,0],[w1,h1],[0,h1]];
+    homoDstPts = [[w2*0.15, h2*0.1],[w2*0.85, h2*0.05],[w2*0.9, h2*0.95],[w2*0.1, h2*0.9]];
+  }
+  drawHomoImage('homo-src', homoSrcImg, homoSrcPts, '#7c8cf8');
+  drawHomoImage('homo-dst', homoDstImg, homoDstPts, '#f472b6');
+  updateHomoStatus();
+}
+
+function solveHomography(src, dst) {
+  // DLT algorithm: solve Ah = 0 via SVD-like approach
+  // src/dst are arrays of [x,y] (4 pairs)
+  const A = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i];
+    const [xp, yp] = dst[i];
+    A.push([-x, -y, -1, 0, 0, 0, x*xp, y*xp, xp]);
+    A.push([0, 0, 0, -x, -y, -1, x*yp, y*yp, yp]);
+  }
+  // Solve using simplified approach: since we have exactly 8 equations for 8 unknowns (h9=1)
+  // Rearrange: [A8x8][h1..h8] = [-col9]
+  const M = [];
+  const b = [];
+  for (let i = 0; i < 8; i++) {
+    M.push(A[i].slice(0, 8));
+    b.push(-A[i][8]);
+  }
+  const h = solveLinear8(M, b);
+  if (!h) return null;
+  return [h[0],h[1],h[2],h[3],h[4],h[5],h[6],h[7],1];
+}
+
+function solveLinear8(M, b) {
+  const n = 8;
+  const aug = M.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col, maxVal = Math.abs(aug[col][col]);
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(aug[row][col]) > maxVal) {
+        maxVal = Math.abs(aug[row][col]);
+        maxRow = row;
+      }
+    }
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-12) return null;
+    const pivot = aug[col][col];
+    for (let j = col; j <= n; j++) aug[col][j] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = col; j <= n; j++) aug[row][j] -= factor * aug[col][j];
+    }
+  }
+  return aug.map(row => row[n]);
+}
+
+function applyHomography(H, x, y) {
+  const w = H[6]*x + H[7]*y + H[8];
+  return [(H[0]*x + H[1]*y + H[2]) / w, (H[3]*x + H[4]*y + H[5]) / w];
+}
+
+function invertHomography(H) {
+  const [a,b,c,d,e,f,g,h,i] = H;
+  const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return null;
+  return [
+    (e*i-f*h)/det, (c*h-b*i)/det, (b*f-c*e)/det,
+    (f*g-d*i)/det, (a*i-c*g)/det, (c*d-a*f)/det,
+    (d*h-e*g)/det, (b*g-a*h)/det, (a*e-b*d)/det
+  ];
+}
+
+function computeHomography() {
+  if (homoSrcPts.length < 4 || homoDstPts.length < 4) {
+    document.getElementById('homography-status').textContent = 'Need 4 points on each image!';
+    return;
+  }
+  const H = solveHomography(homoSrcPts, homoDstPts);
+  if (!H) {
+    document.getElementById('homography-status').textContent = 'Degenerate point configuration — try different points.';
+    return;
+  }
+  const Hinv = invertHomography(H);
+  if (!Hinv) {
+    document.getElementById('homography-status').textContent = 'Could not invert homography.';
+    return;
+  }
+
+  const srcData = homoSrcImg.data;
+  const dstCanvas = document.getElementById('homo-result');
+  const dw = homoDstImg.w, dh = homoDstImg.h;
+  dstCanvas.width = dw; dstCanvas.height = dh;
+  const dstCtx = dstCanvas.getContext('2d');
+  const result = dstCtx.createImageData(dw, dh);
+
+  for (let y = 0; y < dh; y++) {
+    for (let x = 0; x < dw; x++) {
+      const [sx, sy] = applyHomography(Hinv, x, y);
+      const ix = Math.round(sx), iy = Math.round(sy);
+      const didx = (y * dw + x) * 4;
+      if (ix >= 0 && ix < srcData.width && iy >= 0 && iy < srcData.height) {
+        const sidx = (iy * srcData.width + ix) * 4;
+        result.data[didx] = srcData.data[sidx];
+        result.data[didx+1] = srcData.data[sidx+1];
+        result.data[didx+2] = srcData.data[sidx+2];
+        result.data[didx+3] = 255;
+      } else {
+        result.data[didx+3] = 0;
+      }
+    }
+  }
+  dstCtx.putImageData(result, 0, 0);
+  document.getElementById('homography-status').textContent = 'Homography applied! Warped source → destination space.';
+}
+
+// ============================================================
+// SECTION 5: Laplacian of Gaussian
+// ============================================================
+function generateSignal(type, N) {
+  const s = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = i / N;
+    if (type === 'step') s[i] = x < 0.5 ? 0 : 1;
+    else if (type === 'rect') s[i] = (x > 0.3 && x < 0.7) ? 1 : 0;
+    else if (type === 'gaussian') s[i] = Math.exp(-((x - 0.5) ** 2) / (2 * 0.05 * 0.05));
+  }
+  return s;
+}
+
+function logKernel(sigma, N) {
+  const k = new Float32Array(N);
+  const center = (N - 1) / 2;
+  for (let i = 0; i < N; i++) {
+    const x = (i - center) / N;
+    const x2 = x * x;
+    const s2 = sigma * sigma;
+    k[i] = -1 / (Math.PI * s2 * s2) * (1 - x2 / s2) * Math.exp(-x2 / (2 * s2));
+  }
+  return k;
+}
+
+function convolve1D(signal, kernel) {
+  const N = signal.length;
+  const K = kernel.length;
+  const half = Math.floor(K / 2);
+  const result = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let sum = 0;
+    for (let j = 0; j < K; j++) {
+      const idx = i + j - half;
+      if (idx >= 0 && idx < N) sum += signal[idx] * kernel[j];
+    }
+    result[i] = sum;
+  }
+  return result;
+}
+
+function drawPlot(canvas, data, options = {}) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 10, bottom: 15, left: 10, right: 10 };
+  ctx.fillStyle = options.bg || '#1a1c24';
+  ctx.fillRect(0, 0, W, H);
+
+  let minV = Infinity, maxV = -Infinity;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] < minV) minV = data[i];
+    if (data[i] > maxV) maxV = data[i];
+  }
+  if (options.symmetric) {
+    const abs = Math.max(Math.abs(minV), Math.abs(maxV));
+    minV = -abs; maxV = abs;
+  }
+  const range = maxV - minV || 1;
+
+  // Zero line
+  if (minV < 0 && maxV > 0) {
+    const zy = pad.top + (1 - (0 - minV) / range) * (H - pad.top - pad.bottom);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, zy);
+    ctx.lineTo(W - pad.right, zy);
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  for (let i = 0; i < data.length; i++) {
+    const x = pad.left + (i / (data.length - 1)) * plotW;
+    const y = pad.top + (1 - (data[i] - minV) / range) * plotH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = options.color || '#7c8cf8';
+  ctx.lineWidth = options.lineWidth || 2;
+  ctx.stroke();
+
+  if (options.fill) {
+    const zeroY = pad.top + (1 - (0 - minV) / range) * plotH;
+    ctx.lineTo(pad.left + plotW, zeroY);
+    ctx.lineTo(pad.left, zeroY);
+    ctx.closePath();
+    ctx.fillStyle = options.fill;
+    ctx.fill();
+  }
+}
+
+function renderLoGInteractive() {
+  const sigma = parseFloat(document.getElementById('log-sigma').value);
+  const sigType = document.getElementById('log-signal').value;
+  document.getElementById('log-sigma-val').textContent = sigma.toFixed(3);
+
+  const N = 512;
+  const signal = generateSignal(sigType, N);
+  const kernel = logKernel(sigma, N);
+  const result = convolve1D(signal, kernel);
+
+  drawPlot(document.getElementById('log-signal-canvas'), signal, { color: '#5eead4', fill: 'rgba(94,234,212,0.1)' });
+  drawPlot(document.getElementById('log-kernel-canvas'), kernel, { color: '#f472b6', symmetric: true });
+  drawPlot(document.getElementById('log-result-canvas'), result, { color: '#fbbf24', symmetric: true });
+}
+
+function renderLoGMultiscale() {
+  const sigmas = [0.01, 0.02, 0.05, 0.08, 0.12, 0.2, 0.35, 0.5];
+  const container = document.getElementById('log-multiscale');
+  container.innerHTML = '';
+  const N = 512;
+  const signal = generateSignal('step', N);
+  const colors = ['#7c8cf8','#5eead4','#f472b6','#fbbf24','#a78bfa','#34d399','#fb923c','#60a5fa'];
+
+  sigmas.forEach((sigma, i) => {
+    const kernel = logKernel(sigma, N);
+    const result = convolve1D(signal, kernel);
+
+    const cell = document.createElement('div');
+    cell.className = 'log-cell';
+
+    const c = document.createElement('canvas');
+    c.width = 300; c.height = 140;
+    drawPlot(c, result, { color: colors[i], symmetric: true, lineWidth: 1.5 });
+    cell.appendChild(c);
+
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.textContent = `σ = ${sigma}`;
+    cell.appendChild(cap);
+    container.appendChild(cell);
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  try {
+    const images = await Promise.all(IMG_SRCS.map(loadImage));
+    for (let i = 0; i < images.length; i++) {
+      loadedImages.push(images[i]);
+      const ds = downscale(images[i], IMG_MAX);
+      smallCanvases.push(ds);
+      grayImages.push(toGrayscale(ds.data));
+    }
+
+    document.getElementById('sift-loading').remove();
+    renderHarris();
+    runMatching();
+    runBoVW();
+    initHomography();
+    renderLoGInteractive();
+    renderLoGMultiscale();
+
+    document.getElementById('harris-k').addEventListener('input', renderHarris);
+    document.getElementById('harris-thresh').addEventListener('input', renderHarris);
+    document.getElementById('harris-nms').addEventListener('input', renderHarris);
+    document.getElementById('log-sigma').addEventListener('input', renderLoGInteractive);
+  } catch (err) {
+    document.getElementById('sift-loading').textContent = 'Error loading images: ' + err.message;
+    console.error(err);
+
+    renderLoGInteractive();
+    renderLoGMultiscale();
+    document.getElementById('log-sigma').addEventListener('input', renderLoGInteractive);
+  }
+}
+
+init();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 – Classification | Computer Vision</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181a20;
+  --surface2: #21242d;
+  --border: #2d3040;
+  --text: #e2e4ea;
+  --text-dim: #8b8fa4;
+  --accent: #6c8cff;
+  --accent2: #58d5a8;
+  --accent3: #ff6c8c;
+  --accent4: #ffb86c;
+  --accent5: #c792ea;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+[data-theme="light"] {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface2: #ecedf3;
+  --border: #d5d7e2;
+  --text: #1a1d2e;
+  --text-dim: #5c6078;
+  --accent: #4a6ae5;
+  --accent2: #30a882;
+  --accent3: #e0406a;
+  --accent4: #d49030;
+  --accent5: #9a60c0;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  padding: 2rem 1rem 4rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+.back-link:hover { opacity: 1; }
+h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: .3rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent5));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 2.5rem; }
+
+/* Sections */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: 1rem 1.4rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.section-header:hover { background: var(--surface2); }
+.section-header h2 { font-size: 1.25rem; font-weight: 600; flex: 1; }
+.section-number {
+  background: var(--accent);
+  color: #fff;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .85rem;
+  flex-shrink: 0;
+}
+.chevron {
+  width: 20px; height: 20px;
+  transition: transform .25s;
+  fill: var(--text-dim);
+  flex-shrink: 0;
+}
+.section.collapsed .chevron { transform: rotate(-90deg); }
+.section-body {
+  padding: 0 1.4rem 1.4rem;
+  overflow: hidden;
+  transition: max-height .35s ease, padding .35s ease;
+}
+.section.collapsed .section-body {
+  max-height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.desc {
+  color: var(--text-dim);
+  font-size: .92rem;
+  margin-bottom: 1rem;
+  max-width: 700px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .45rem .8rem;
+}
+.control-group label {
+  font-size: .82rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.control-group input[type="range"] {
+  width: 130px;
+  accent-color: var(--accent);
+}
+.control-group input[type="number"],
+.control-group input[type="text"] {
+  width: 60px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: .25rem .4rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  text-align: center;
+}
+.control-group input[type="text"].wide { width: 220px; text-align: left; }
+.val-display {
+  font-family: var(--mono);
+  font-size: .85rem;
+  color: var(--accent);
+  min-width: 36px;
+  text-align: right;
+}
+button.btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: .45rem 1rem;
+  border-radius: 8px;
+  font-size: .85rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .15s, transform .1s;
+}
+button.btn:hover { filter: brightness(1.15); }
+button.btn:active { transform: scale(.97); }
+button.btn.secondary {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* Canvas container */
+.canvas-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+canvas { display: block; }
+.canvas-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.canvas-row .canvas-wrap { flex: 1; min-width: 280px; }
+
+/* CIFAR grid */
+.cifar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: .8rem;
+  margin-top: .5rem;
+}
+.cifar-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem .5rem;
+  text-align: center;
+  transition: transform .15s, border-color .15s;
+}
+.cifar-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.cifar-icon {
+  font-size: 2.4rem;
+  margin-bottom: .4rem;
+  display: block;
+}
+.cifar-label {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.cifar-id {
+  font-size: .72rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+/* Math */
+.formula {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .8rem 1.2rem;
+  font-family: var(--mono);
+  font-size: .92rem;
+  overflow-x: auto;
+  margin: .8rem 0;
+  color: var(--accent);
+}
+.insight-box {
+  background: rgba(108,140,255,.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: .7rem 1rem;
+  margin: .8rem 0;
+  font-size: .88rem;
+  color: var(--text);
+}
+.insight-box strong { color: var(--accent); }
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  font-size: .82rem;
+  margin-bottom: .6rem;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+/* Temperature indicator */
+.temp-indicator {
+  display: flex;
+  gap: .6rem;
+  margin-top: .6rem;
+  flex-wrap: wrap;
+}
+.temp-tag {
+  font-size: .78rem;
+  padding: .25rem .6rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all .25s;
+}
+.temp-tag.active {
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(108,140,255,.3);
+}
+
+@media (max-width: 600px) {
+  body { padding: 1rem .5rem 3rem; }
+  h1 { font-size: 1.6rem; }
+  .section-body { padding: 0 .8rem .8rem; }
+  .controls { gap: .5rem; }
+}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+
+<a href="index.html" class="back-link">&larr; Back to Index</a>
+<h1>06 &ndash; Classification</h1>
+<p class="subtitle">CIFAR-10, color features, k-NN classification, and softmax temperature</p>
+
+<!-- ================================================================== -->
+<!-- SECTION 1: CIFAR-10 -->
+<!-- ================================================================== -->
+<div class="section" id="sec-cifar">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="section-number">1</span>
+    <h2>CIFAR-10 Dataset</h2>
+    <svg class="chevron" viewBox="0 0 20 20"><path d="M6 4l8 6-8 6z"/></svg>
+  </div>
+  <div class="section-body">
+    <p class="desc">
+      CIFAR-10 is a benchmark dataset of 60,000 tiny 32&times;32 colour images in 10 classes, with 6,000 images per class.
+      It is split into 50,000 training and 10,000 test images. The small image size makes it a popular sandbox for testing classification algorithms.
+    </p>
+    <div class="cifar-grid" id="cifar-grid"></div>
+    <div class="insight-box" style="margin-top:1rem">
+      <strong>Key point:</strong> Each image is just 32&times;32&times;3 = 3,072 numbers. A classifier must map this
+      high-dimensional input to one of 10 labels. Simple color-based features already carry some signal &mdash; we explore this below.
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- SECTION 2: COLOR FEATURE SCATTER + k-NN -->
+<!-- ================================================================== -->
+<div class="section" id="sec-knn-scatter">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="section-number">2</span>
+    <h2>Color Feature Classification &amp; k-NN</h2>
+    <svg class="chevron" viewBox="0 0 20 20"><path d="M6 4l8 6-8 6z"/></svg>
+  </div>
+  <div class="section-body">
+    <p class="desc">
+      A simple idea: count blue vs green pixels in each image. Ships tend to have more blue (sky/water),
+      while deer tend to have more green (grass/forest). We plot these as 2D features and classify with k-NN.
+      <strong>Click anywhere on the plot</strong> to classify a new query point.
+    </p>
+    <div class="controls">
+      <div class="control-group">
+        <label>k =</label>
+        <input type="range" id="knn-k" min="1" max="25" value="5" step="2" oninput="updateKnnK()">
+        <span class="val-display" id="knn-k-val">5</span>
+      </div>
+      <div class="control-group">
+        <label>Points per class:</label>
+        <input type="range" id="knn-n" min="20" max="150" value="60" step="10" oninput="regenerateScatter()">
+        <span class="val-display" id="knn-n-val">60</span>
+      </div>
+      <button class="btn secondary" onclick="regenerateScatter()">Regenerate</button>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#4a9eff"></span> Ship (blue pixels)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#46d99e"></span> Deer (green pixels)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#ff6c8c"></span> Query point</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="scatter-canvas" width="600" height="420"></canvas>
+    </div>
+    <div class="insight-box">
+      <strong>Try it:</strong> Click near the overlap region where ship and deer clusters meet.
+      Then change k to see how the decision flips. Larger k smooths the boundary but may lose detail.
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- SECTION 3: k-NN ACCURACY vs k -->
+<!-- ================================================================== -->
+<div class="section" id="sec-knn-acc">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="section-number">3</span>
+    <h2>k-NN Accuracy vs k</h2>
+    <svg class="chevron" viewBox="0 0 20 20"><path d="M6 4l8 6-8 6z"/></svg>
+  </div>
+  <div class="section-body">
+    <p class="desc">
+      How does the choice of k affect classification accuracy? We generate synthetic train/test data and
+      evaluate k-NN for odd values of k from 1 to 25. The stem plot shows accuracy at each k.
+    </p>
+    <div class="controls">
+      <div class="control-group">
+        <label>Train size:</label>
+        <input type="range" id="acc-train" min="40" max="300" value="120" step="20" oninput="recomputeAccuracy()">
+        <span class="val-display" id="acc-train-val">120</span>
+      </div>
+      <div class="control-group">
+        <label>Test size:</label>
+        <input type="range" id="acc-test" min="20" max="200" value="80" step="20" oninput="recomputeAccuracy()">
+        <span class="val-display" id="acc-test-val">80</span>
+      </div>
+      <div class="control-group">
+        <label>Cluster sep:</label>
+        <input type="range" id="acc-sep" min="1" max="6" value="3" step="0.5" oninput="recomputeAccuracy()">
+        <span class="val-display" id="acc-sep-val">3.0</span>
+      </div>
+      <button class="btn secondary" onclick="recomputeAccuracy()">Rerun</button>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="acc-canvas" width="650" height="350"></canvas>
+    </div>
+    <div class="insight-box">
+      <strong>Observation:</strong> Very small k (1 or 3) may overfit to noise; very large k washes out local structure.
+      Typically there is a sweet spot in between. Try reducing cluster separation to make the problem harder.
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- SECTION 4: SOFTMAX TEMPERATURE -->
+<!-- ================================================================== -->
+<div class="section" id="sec-softmax">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="section-number" style="background:var(--accent3)">4</span>
+    <h2>Softmax &amp; Temperature Scaling</h2>
+    <svg class="chevron" viewBox="0 0 20 20"><path d="M6 4l8 6-8 6z"/></svg>
+  </div>
+  <div class="section-body">
+    <p class="desc">
+      The softmax function converts a vector of raw scores (logits) into a probability distribution.
+      The <strong>temperature</strong> &tau; controls the &ldquo;sharpness&rdquo; of the output.
+    </p>
+    <div class="formula">
+      softmax(x<sub>i</sub>) = exp(x<sub>i</sub> / &tau;) &frasl; &Sigma;<sub>j</sub> exp(x<sub>j</sub> / &tau;)
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>Logits:</label>
+        <input type="text" class="wide" id="sm-logits" value="5, -2, -3, 3, 7" oninput="updateSoftmax()">
+      </div>
+      <div class="control-group">
+        <label>&tau; =</label>
+        <input type="range" id="sm-tau" min="0.01" max="10" value="1" step="0.01" oninput="updateSoftmax()">
+        <span class="val-display" id="sm-tau-val">1.00</span>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="sm-animate-btn" onclick="toggleSoftmaxAnimation()">&#9654; Animate &tau;</button>
+      <button class="btn secondary" onclick="setSoftmaxTau(0.01)">Frozen (&tau;&rarr;0)</button>
+      <button class="btn secondary" onclick="setSoftmaxTau(1)">Standard (&tau;=1)</button>
+      <button class="btn secondary" onclick="setSoftmaxTau(10)">Uniform (&tau;&rarr;&infin;)</button>
+    </div>
+    <div class="temp-indicator" id="temp-tags">
+      <span class="temp-tag" id="tag-cold" style="background:rgba(108,140,255,.15);color:var(--accent)">Cold &tau;&lt;0.5</span>
+      <span class="temp-tag" id="tag-std" style="background:rgba(88,213,168,.15);color:var(--accent2)">Standard &tau;&approx;1</span>
+      <span class="temp-tag" id="tag-hot" style="background:rgba(255,108,140,.15);color:var(--accent3)">Hot &tau;&gt;2</span>
+    </div>
+    <div class="canvas-row" style="margin-top:1rem">
+      <div class="canvas-wrap">
+        <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem;font-weight:600">INPUT LOGITS</div>
+        <canvas id="sm-input-canvas" width="460" height="260"></canvas>
+      </div>
+      <div class="canvas-wrap">
+        <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem;font-weight:600">SOFTMAX OUTPUT (probabilities)</div>
+        <canvas id="sm-output-canvas" width="460" height="260"></canvas>
+      </div>
+    </div>
+    <div style="margin-top:1rem">
+      <div class="canvas-wrap">
+        <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem;font-weight:600">ENTROPY vs TEMPERATURE</div>
+        <canvas id="sm-entropy-canvas" width="700" height="220"></canvas>
+      </div>
+    </div>
+    <div class="insight-box">
+      <strong>&tau; &rarr; 0 (cold):</strong> Output approaches a one-hot vector (argmax). The model is &ldquo;confident.&rdquo;<br>
+      <strong>&tau; = 1:</strong> Standard softmax — the default.<br>
+      <strong>&tau; &rarr; &infin; (hot):</strong> Output approaches a uniform distribution. The model is &ldquo;uncertain.&rdquo;
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================================================================
+   UTILITY
+   =================================================================== */
+function toggleSection(header) {
+  header.parentElement.classList.toggle('collapsed');
+}
+
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function generateCluster(cx, cy, sx, sy, n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([cx + randn() * sx, cy + randn() * sy]);
+  return pts;
+}
+
+const dpr = window.devicePixelRatio || 1;
+function hiDpi(canvas) {
+  const w = canvas.width, h = canvas.height;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return ctx;
+}
+
+/* ===================================================================
+   SECTION 1 — CIFAR-10
+   =================================================================== */
+const cifarClasses = [
+  { name: 'Airplane', icon: '✈️', color: '#6c8cff' },
+  { name: 'Automobile', icon: '🚗', color: '#ff6c8c' },
+  { name: 'Bird', icon: '🐦', color: '#58d5a8' },
+  { name: 'Cat', icon: '🐱', color: '#ffb86c' },
+  { name: 'Deer', icon: '🦌', color: '#c792ea' },
+  { name: 'Dog', icon: '🐕', color: '#f78c6c' },
+  { name: 'Frog', icon: '🐸', color: '#a9dc76' },
+  { name: 'Horse', icon: '🐴', color: '#e08a72' },
+  { name: 'Ship', icon: '🚢', color: '#78dce8' },
+  { name: 'Truck', icon: '🚛', color: '#ff9e64' }
+];
+(function buildCifarGrid() {
+  const grid = document.getElementById('cifar-grid');
+  cifarClasses.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'cifar-card';
+    card.style.borderTopColor = c.color;
+    card.innerHTML = `<span class="cifar-icon">${c.icon}</span>
+      <span class="cifar-label">${c.name}</span>
+      <span class="cifar-id">class ${i}</span>`;
+    grid.appendChild(card);
+  });
+})();
+
+/* ===================================================================
+   SECTION 2 — SCATTER + k-NN
+   =================================================================== */
+let scatterData = { ships: [], deer: [] };
+let queryPt = null;
+let knnNeighbors = [];
+
+function regenerateScatter() {
+  const n = +document.getElementById('knn-n').value;
+  document.getElementById('knn-n-val').textContent = n;
+  scatterData.ships = generateCluster(0.62, 0.35, 0.12, 0.11, n);
+  scatterData.deer = generateCluster(0.35, 0.62, 0.11, 0.12, n);
+  queryPt = null;
+  knnNeighbors = [];
+  drawScatter();
+}
+
+function updateKnnK() {
+  const k = +document.getElementById('knn-k').value;
+  document.getElementById('knn-k-val').textContent = k;
+  if (queryPt) classifyQuery();
+  drawScatter();
+}
+
+function drawScatter() {
+  const canvas = document.getElementById('scatter-canvas');
+  const W = 600, H = 420;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { l: 55, r: 20, t: 20, b: 50 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const toX = v => pad.l + v * pw;
+  const toY = v => pad.t + (1 - v) * ph;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = '#252836';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const x = toX(i / 10), y = toY(i / 10);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+  }
+
+  // axes labels
+  ctx.fillStyle = '#8b8fa4';
+  ctx.font = '12px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Fraction of Blue Pixels', W / 2, H - 8);
+  ctx.save();
+  ctx.translate(14, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Fraction of Green Pixels', 0, 0);
+  ctx.restore();
+
+  // tick labels
+  ctx.font = '10px JetBrains Mono, monospace';
+  for (let i = 0; i <= 10; i += 2) {
+    const v = (i / 10).toFixed(1);
+    ctx.textAlign = 'center';
+    ctx.fillText(v, toX(i / 10), H - pad.b + 16);
+    ctx.textAlign = 'right';
+    ctx.fillText(v, pad.l - 8, toY(i / 10) + 4);
+  }
+
+  // draw k-NN neighbor lines
+  if (queryPt && knnNeighbors.length) {
+    ctx.strokeStyle = 'rgba(255,108,140,0.25)';
+    ctx.lineWidth = 1.5;
+    knnNeighbors.forEach(n => {
+      ctx.beginPath();
+      ctx.moveTo(toX(queryPt[0]), toY(queryPt[1]));
+      ctx.lineTo(toX(n.pt[0]), toY(n.pt[1]));
+      ctx.stroke();
+    });
+    // highlight neighbors
+    knnNeighbors.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(toX(n.pt[0]), toY(n.pt[1]), 7, 0, Math.PI * 2);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+
+  // points
+  function drawPts(pts, color) {
+    ctx.fillStyle = color;
+    pts.forEach(p => {
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(toX(p[0]), toY(p[1]), 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+  drawPts(scatterData.ships, '#4a9eff');
+  drawPts(scatterData.deer, '#46d99e');
+
+  // query point
+  if (queryPt) {
+    ctx.fillStyle = '#ff6c8c';
+    ctx.beginPath();
+    ctx.arc(toX(queryPt[0]), toY(queryPt[1]), 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // label
+    const k = +document.getElementById('knn-k').value;
+    let shipCount = 0, deerCount = 0;
+    knnNeighbors.forEach(n => n.cls === 0 ? shipCount++ : deerCount++);
+    const pred = shipCount >= deerCount ? 'Ship' : 'Deer';
+    const predColor = shipCount >= deerCount ? '#4a9eff' : '#46d99e';
+    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.fillStyle = predColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(`Predicted: ${pred} (${Math.max(shipCount, deerCount)}/${k})`, toX(queryPt[0]) + 14, toY(queryPt[1]) - 6);
+  }
+}
+
+function classifyQuery() {
+  const k = +document.getElementById('knn-k').value;
+  const all = [];
+  scatterData.ships.forEach(p => all.push({ pt: p, cls: 0 }));
+  scatterData.deer.forEach(p => all.push({ pt: p, cls: 1 }));
+  all.forEach(a => {
+    const dx = a.pt[0] - queryPt[0], dy = a.pt[1] - queryPt[1];
+    a.dist = dx * dx + dy * dy;
+  });
+  all.sort((a, b) => a.dist - b.dist);
+  knnNeighbors = all.slice(0, k);
+}
+
+document.getElementById('scatter-canvas').addEventListener('click', function (e) {
+  const rect = this.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const W = 600, H = 420;
+  const pad = { l: 55, r: 20, t: 20, b: 50 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const fx = (mx - pad.l) / pw, fy = 1 - (my - pad.t) / ph;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return;
+  queryPt = [fx, fy];
+  classifyQuery();
+  drawScatter();
+});
+
+regenerateScatter();
+
+/* ===================================================================
+   SECTION 3 — ACCURACY vs k
+   =================================================================== */
+function recomputeAccuracy() {
+  const nTrain = +document.getElementById('acc-train').value;
+  const nTest = +document.getElementById('acc-test').value;
+  const sep = +document.getElementById('acc-sep').value;
+  document.getElementById('acc-train-val').textContent = nTrain;
+  document.getElementById('acc-test-val').textContent = nTest;
+  document.getElementById('acc-sep-val').textContent = sep.toFixed(1);
+
+  const halfTrain = Math.floor(nTrain / 2);
+  const halfTest = Math.floor(nTest / 2);
+  const trainA = generateCluster(sep, 0, 1.5, 1.5, halfTrain);
+  const trainB = generateCluster(0, sep, 1.5, 1.5, halfTrain);
+  const testA = generateCluster(sep, 0, 1.5, 1.5, halfTest);
+  const testB = generateCluster(0, sep, 1.5, 1.5, halfTest);
+  const trainPts = trainA.map(p => ({ pt: p, cls: 0 })).concat(trainB.map(p => ({ pt: p, cls: 1 })));
+  const testPts = testA.map(p => ({ pt: p, cls: 0 })).concat(testB.map(p => ({ pt: p, cls: 1 })));
+
+  const ks = [];
+  const accs = [];
+  for (let k = 1; k <= 25; k += 2) {
+    let correct = 0;
+    testPts.forEach(tp => {
+      trainPts.forEach(tr => {
+        const dx = tr.pt[0] - tp.pt[0], dy = tr.pt[1] - tp.pt[1];
+        tr.dist = dx * dx + dy * dy;
+      });
+      const sorted = trainPts.slice().sort((a, b) => a.dist - b.dist);
+      const neighbors = sorted.slice(0, k);
+      let c0 = 0, c1 = 0;
+      neighbors.forEach(n => n.cls === 0 ? c0++ : c1++);
+      if ((c0 >= c1 ? 0 : 1) === tp.cls) correct++;
+    });
+    ks.push(k);
+    accs.push(correct / testPts.length);
+  }
+  drawAccuracy(ks, accs);
+}
+
+function drawAccuracy(ks, accs) {
+  const canvas = document.getElementById('acc-canvas');
+  const W = 650, H = 350;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { l: 60, r: 20, t: 25, b: 50 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const minA = Math.floor(Math.min(...accs) * 20) / 20;
+  const maxA = Math.ceil(Math.max(...accs) * 20) / 20;
+  const rangeA = maxA - minA || 0.1;
+
+  const toX = i => pad.l + (i / (ks.length - 1)) * pw;
+  const toY = a => pad.t + (1 - (a - minA) / rangeA) * ph;
+
+  // grid
+  ctx.strokeStyle = '#252836';
+  ctx.lineWidth = 1;
+  for (let a = minA; a <= maxA + 0.001; a += 0.05) {
+    ctx.beginPath(); ctx.moveTo(pad.l, toY(a)); ctx.lineTo(W - pad.r, toY(a)); ctx.stroke();
+  }
+
+  // baseline
+  ctx.strokeStyle = 'rgba(255,108,140,0.3)';
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, toY(0.5)); ctx.lineTo(W - pad.r, toY(0.5)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // stems + dots
+  const bestIdx = accs.indexOf(Math.max(...accs));
+  ks.forEach((k, i) => {
+    const x = toX(i), y = toY(accs[i]), base = toY(minA);
+    const isBest = i === bestIdx;
+    ctx.strokeStyle = isBest ? '#6c8cff' : 'rgba(108,140,255,0.4)';
+    ctx.lineWidth = isBest ? 2.5 : 1.5;
+    ctx.beginPath(); ctx.moveTo(x, base); ctx.lineTo(x, y); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, y, isBest ? 6 : 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = isBest ? '#6c8cff' : '#4a6ab5';
+    ctx.fill();
+    if (isBest) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
+
+    ctx.fillStyle = '#8b8fa4';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(k, x, H - pad.b + 16);
+
+    if (isBest) {
+      ctx.fillStyle = '#6c8cff';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.fillText((accs[i] * 100).toFixed(1) + '%', x, y - 12);
+    }
+  });
+
+  // axis labels
+  ctx.fillStyle = '#8b8fa4';
+  ctx.font = '12px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('k (number of neighbors)', W / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Accuracy', 0, 0);
+  ctx.restore();
+
+  // y tick labels
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'right';
+  for (let a = minA; a <= maxA + 0.001; a += 0.05) {
+    ctx.fillText((a * 100).toFixed(0) + '%', pad.l - 8, toY(a) + 4);
+  }
+}
+
+recomputeAccuracy();
+
+/* ===================================================================
+   SECTION 4 — SOFTMAX TEMPERATURE
+   =================================================================== */
+let smAnimating = false;
+let smAnimDir = 1;
+let smAnimRaf = null;
+
+function parseSoftmaxLogits() {
+  const raw = document.getElementById('sm-logits').value;
+  return raw.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+}
+
+function softmax(logits, tau) {
+  const scaled = logits.map(x => x / tau);
+  const maxS = Math.max(...scaled);
+  const exps = scaled.map(x => Math.exp(x - maxS));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sum);
+}
+
+function entropy(probs) {
+  return -probs.reduce((s, p) => s + (p > 1e-12 ? p * Math.log2(p) : 0), 0);
+}
+
+function updateSoftmax() {
+  const tau = +document.getElementById('sm-tau').value;
+  document.getElementById('sm-tau-val').textContent = tau.toFixed(2);
+  const logits = parseSoftmaxLogits();
+  if (logits.length < 2) return;
+  const probs = softmax(logits, tau);
+
+  updateTempTags(tau);
+  drawSoftmaxInput(logits);
+  drawSoftmaxOutput(logits, probs, tau);
+  drawEntropyPlot(logits, tau);
+}
+
+function updateTempTags(tau) {
+  document.getElementById('tag-cold').classList.toggle('active', tau < 0.5);
+  document.getElementById('tag-std').classList.toggle('active', tau >= 0.5 && tau <= 2);
+  document.getElementById('tag-hot').classList.toggle('active', tau > 2);
+}
+
+function drawSoftmaxInput(logits) {
+  const canvas = document.getElementById('sm-input-canvas');
+  const W = 460, H = 260;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { l: 45, r: 15, t: 20, b: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = logits.length;
+  const barW = Math.min(50, (pw / n) * 0.6);
+  const gap = pw / n;
+
+  const absMax = Math.max(Math.abs(Math.min(...logits)), Math.abs(Math.max(...logits)), 1);
+  const yScale = ph / 2 / absMax;
+  const zeroY = pad.t + ph / 2;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // zero line
+  ctx.strokeStyle = '#3d4055';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, zeroY); ctx.lineTo(W - pad.r, zeroY); ctx.stroke();
+
+  // grid
+  ctx.strokeStyle = '#1e2030';
+  for (let v = -absMax; v <= absMax; v += Math.ceil(absMax / 3)) {
+    if (v === 0) continue;
+    const y = zeroY - v * yScale;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#6b7094';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(v, pad.l - 6, y + 4);
+  }
+
+  const barColors = ['#6c8cff', '#ff6c8c', '#c792ea', '#58d5a8', '#ffb86c', '#78dce8', '#f78c6c', '#a9dc76', '#ff9e64', '#ab9df2'];
+
+  logits.forEach((v, i) => {
+    const x = pad.l + i * gap + (gap - barW) / 2;
+    const h = v * yScale;
+    const y = v >= 0 ? zeroY - h : zeroY;
+
+    const grad = ctx.createLinearGradient(x, zeroY, x, zeroY - h);
+    const c = barColors[i % barColors.length];
+    grad.addColorStop(0, c + '99');
+    grad.addColorStop(1, c);
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    const r = 4;
+    if (v >= 0) {
+      ctx.moveTo(x, zeroY);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.lineTo(x + barW - r, y);
+      ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
+      ctx.lineTo(x + barW, zeroY);
+    } else {
+      ctx.moveTo(x, zeroY);
+      ctx.lineTo(x, y + Math.abs(h) - r);
+      ctx.quadraticCurveTo(x, y + Math.abs(h), x + r, y + Math.abs(h));
+      ctx.lineTo(x + barW - r, y + Math.abs(h));
+      ctx.quadraticCurveTo(x + barW, y + Math.abs(h), x + barW, y + Math.abs(h) - r);
+      ctx.lineTo(x + barW, zeroY);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // value on bar
+    ctx.fillStyle = '#e2e4ea';
+    ctx.font = 'bold 12px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    const labelY = v >= 0 ? Math.min(zeroY - h - 6, zeroY - 8) : Math.max(zeroY + Math.abs(h) + 14, zeroY + 14);
+    ctx.fillText(v.toFixed(1), x + barW / 2, labelY);
+
+    // class index
+    ctx.fillStyle = '#6b7094';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillText('x' + (i + 1), x + barW / 2, H - pad.b + 16);
+  });
+}
+
+function drawSoftmaxOutput(logits, probs, tau) {
+  const canvas = document.getElementById('sm-output-canvas');
+  const W = 460, H = 260;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { l: 50, r: 15, t: 20, b: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = probs.length;
+  const barW = Math.min(50, (pw / n) * 0.6);
+  const gap = pw / n;
+  const baseY = pad.t + ph;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = '#1e2030';
+  ctx.lineWidth = 1;
+  for (let v = 0; v <= 1; v += 0.2) {
+    const y = baseY - v * ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#6b7094';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(1), pad.l - 6, y + 4);
+  }
+
+  // uniform line
+  const uniformP = 1 / n;
+  ctx.strokeStyle = 'rgba(88,213,168,0.3)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, baseY - uniformP * ph); ctx.lineTo(W - pad.r, baseY - uniformP * ph); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const barColors = ['#6c8cff', '#ff6c8c', '#c792ea', '#58d5a8', '#ffb86c', '#78dce8', '#f78c6c', '#a9dc76', '#ff9e64', '#ab9df2'];
+  const maxIdx = probs.indexOf(Math.max(...probs));
+
+  probs.forEach((p, i) => {
+    const x = pad.l + i * gap + (gap - barW) / 2;
+    const h = p * ph;
+    const y = baseY - h;
+    const c = barColors[i % barColors.length];
+
+    const grad = ctx.createLinearGradient(x, baseY, x, y);
+    grad.addColorStop(0, c + '66');
+    grad.addColorStop(1, c);
+    ctx.fillStyle = grad;
+
+    const r = 4;
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.lineTo(x + barW - r, y);
+    ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
+    ctx.lineTo(x + barW, baseY);
+    ctx.closePath();
+    ctx.fill();
+
+    // glow for max
+    if (i === maxIdx && tau < 2) {
+      ctx.shadowColor = c;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // value
+    ctx.fillStyle = '#e2e4ea';
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    const label = p >= 0.01 ? (p * 100).toFixed(1) + '%' : '<1%';
+    ctx.fillText(label, x + barW / 2, Math.min(y - 6, baseY - 10));
+
+    // class index
+    ctx.fillStyle = '#6b7094';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillText('x' + (i + 1), x + barW / 2, H - pad.b + 16);
+  });
+
+  // entropy label
+  const ent = entropy(probs);
+  const maxEnt = Math.log2(n);
+  ctx.fillStyle = '#8b8fa4';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`H = ${ent.toFixed(2)} / ${maxEnt.toFixed(2)} bits`, W - pad.r, pad.t + 14);
+}
+
+function drawEntropyPlot(logits, currentTau) {
+  const canvas = document.getElementById('sm-entropy-canvas');
+  const W = 700, H = 220;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { l: 55, r: 20, t: 15, b: 45 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = logits.length;
+  const maxEnt = Math.log2(n);
+
+  const taus = [];
+  for (let t = 0.01; t <= 10; t += 0.05) taus.push(t);
+  const ents = taus.map(t => entropy(softmax(logits, t)));
+
+  const toX = t => pad.l + (t / 10) * pw;
+  const toY = e => pad.t + (1 - e / maxEnt) * ph;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = '#1e2030';
+  ctx.lineWidth = 1;
+  for (let e = 0; e <= maxEnt; e += 0.5) {
+    ctx.beginPath(); ctx.moveTo(pad.l, toY(e)); ctx.lineTo(W - pad.r, toY(e)); ctx.stroke();
+  }
+  for (let t = 0; t <= 10; t += 1) {
+    ctx.beginPath(); ctx.moveTo(toX(t), pad.t); ctx.lineTo(toX(t), H - pad.b); ctx.stroke();
+  }
+
+  // max entropy line
+  ctx.strokeStyle = 'rgba(88,213,168,0.3)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, toY(maxEnt)); ctx.lineTo(W - pad.r, toY(maxEnt)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(88,213,168,0.5)';
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('max entropy (uniform)', pad.l + 4, toY(maxEnt) - 5);
+
+  // curve
+  ctx.strokeStyle = '#6c8cff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  taus.forEach((t, i) => {
+    const x = toX(t), y = toY(ents[i]);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // current tau marker
+  const curEnt = entropy(softmax(logits, currentTau));
+  const cx = toX(currentTau), cy = toY(curEnt);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff6c8c';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // vertical dashed line at current tau
+  ctx.strokeStyle = 'rgba(255,108,140,0.3)';
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, H - pad.b); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#ff6c8c';
+  ctx.font = 'bold 11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`τ=${currentTau.toFixed(2)}`, cx, cy - 12);
+
+  // axes
+  ctx.fillStyle = '#8b8fa4';
+  ctx.font = '12px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Temperature τ', W / 2, H - 6);
+  ctx.save();
+  ctx.translate(14, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Entropy (bits)', 0, 0);
+  ctx.restore();
+
+  // tick labels
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= 10; t += 2) ctx.fillText(t, toX(t), H - pad.b + 14);
+  ctx.textAlign = 'right';
+  for (let e = 0; e <= maxEnt; e += 0.5) ctx.fillText(e.toFixed(1), pad.l - 6, toY(e) + 4);
+}
+
+function setSoftmaxTau(val) {
+  document.getElementById('sm-tau').value = val;
+  updateSoftmax();
+}
+
+function toggleSoftmaxAnimation() {
+  if (smAnimating) {
+    smAnimating = false;
+    cancelAnimationFrame(smAnimRaf);
+    document.getElementById('sm-animate-btn').innerHTML = '&#9654; Animate τ';
+    return;
+  }
+  smAnimating = true;
+  document.getElementById('sm-animate-btn').innerHTML = '&#9724; Stop';
+  smAnimDir = 1;
+  const slider = document.getElementById('sm-tau');
+  let val = +slider.value;
+
+  function step() {
+    val += smAnimDir * 0.03;
+    if (val >= 10) { val = 10; smAnimDir = -1; }
+    if (val <= 0.01) { val = 0.01; smAnimDir = 1; }
+    slider.value = val;
+    updateSoftmax();
+    if (smAnimating) smAnimRaf = requestAnimationFrame(step);
+  }
+  smAnimRaf = requestAnimationFrame(step);
+}
+
+updateSoftmax();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 – Image Enhancement</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242835;--border:#2e3347;--text:#e2e4ed;--text2:#9da3b8;--accent:#6c8cff;--accent2:#4e6bdf;--green:#4cd9a0;--red:#ff6b6b;--radius:10px;--shadow:0 2px 12px rgba(0,0,0,.35)}
+[data-theme="light"]{--bg:#f5f6fa;--surface:#ffffff;--surface2:#ecedf3;--border:#d5d7e2;--text:#1a1d2e;--text2:#5c6078;--accent:#4a6ae5;--accent2:#3a52b5;--green:#18a770;--red:#dc3545;--shadow:0 2px 12px rgba(0,0,0,.08)}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;line-height:1.6;padding:20px 20px 80px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.back-link{display:inline-block;margin-bottom:18px;font-size:.95rem;opacity:.85;transition:opacity .2s}
+.back-link:hover{opacity:1}
+header{text-align:center;padding:30px 0 10px;margin-bottom:30px;border-bottom:1px solid var(--border)}
+header h1{font-size:2rem;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+header p{color:var(--text2);font-size:.95rem}
+.container{max-width:1200px;margin:0 auto}
+section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow)}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;cursor:pointer;user-select:none;transition:background .15s}
+.section-header:hover{background:var(--surface2)}
+.section-header h2{font-size:1.15rem;font-weight:600}
+.section-header .toggle{font-size:1.3rem;color:var(--text2);transition:transform .25s}
+.section-header.collapsed .toggle{transform:rotate(-90deg)}
+.section-body{padding:10px 22px 22px;transition:max-height .3s ease}
+.section-body.hidden{display:none}
+.row{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start}
+.col{flex:1;min-width:180px;text-align:center}
+.col label,.img-label{display:block;font-size:.82rem;color:var(--text2);margin-bottom:6px;font-weight:500}
+canvas,img{max-width:100%;border-radius:6px}
+.display-canvas{image-rendering:pixelated}
+.controls{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;margin:14px 0;padding:14px 18px;background:var(--surface2);border-radius:8px}
+.control-group{display:flex;align-items:center;gap:8px}
+.control-group label{font-size:.82rem;color:var(--text2);white-space:nowrap}
+.control-group input[type=range]{width:140px;accent-color:var(--accent)}
+.control-group .val{font-size:.82rem;color:var(--accent);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.sub-section{margin:18px 0;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.sub-section h3{font-size:.98rem;font-weight:600;margin-bottom:10px;color:var(--green)}
+.note{font-size:.78rem;color:var(--text2);margin-top:8px;font-style:italic}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid-4 .cell{text-align:center}
+.grid-4 .cell canvas{width:100%}
+.grid-4 .cell .img-label{margin-top:4px}
+.geo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.geo-card{background:var(--surface2);border-radius:8px;padding:14px;border:1px solid var(--border)}
+.geo-card h4{font-size:.88rem;color:var(--accent);margin-bottom:8px}
+.geo-card canvas{width:100%;border-radius:4px}
+.filter-panel{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px}
+.filter-card{background:var(--surface2);border-radius:8px;padding:14px;border:1px solid var(--border)}
+.filter-card h4{font-size:.88rem;color:var(--accent);margin-bottom:8px}
+.filter-card canvas{width:100%;max-width:460px;border-radius:4px}
+@media(max-width:700px){.grid-4{grid-template-columns:repeat(2,1fr)}.geo-grid,.filter-panel{grid-template-columns:1fr}.control-group input[type=range]{width:100px}}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .4s}
+.loading-overlay.done{opacity:0;pointer-events:none}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{margin-top:14px;color:var(--text2);font-size:.9rem}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+
+<div class="loading-overlay" id="loader"><div class="spinner"></div><p>Loading image…</p></div>
+
+<div class="container">
+<a href="index.html" class="back-link">← Back to Index</a>
+
+<header>
+<h1>02 – Image Enhancement</h1>
+<p>RGB channels, grayscale, 3D heightmap, subsampling, point-wise &amp; geometric transforms, filtering</p>
+</header>
+
+<!-- 1. RGB Channel Separation -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>1 · RGB Channel Separation</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-rgb">
+<div class="row" id="rgb-row"></div>
+</div>
+</section>
+
+<!-- 2. Grayscale -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>2 · Grayscale Conversion</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-gray">
+<div class="row" id="gray-row"></div>
+</div>
+</section>
+
+<!-- 3. 3D Heightmap -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>3 · 3D Heightmap</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-3d">
+<div id="heightmap-container" style="width:100%;height:500px;position:relative"></div>
+<p class="note">Grayscale intensity → height. Drag to orbit, scroll to zoom.</p>
+</div>
+</section>
+
+<!-- 4. Subsampling -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>4 · Image Subsampling</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-subsample">
+<div class="sub-section">
+<h3>Direct Subsampling (take every n-th pixel, nearest-neighbor upscale)</h3>
+<div class="grid-4" id="subsample-direct"></div>
+</div>
+<div class="sub-section">
+<h3>Box Blur → Subsample → Nearest-Neighbor Upscale</h3>
+<div class="grid-4" id="subsample-blur"></div>
+</div>
+</div>
+</section>
+
+<!-- 5. Point-wise Transforms -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>5 · Point-wise Transformations</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-pointwise">
+<!-- Negative -->
+<div class="sub-section">
+<h3>Negative</h3>
+<div class="row" id="neg-row"></div>
+</div>
+<!-- Affine Contrast -->
+<div class="sub-section">
+<h3>Affine Contrast: clip(α·I + β, 0, 255)</h3>
+<div class="controls">
+<div class="control-group"><label>α</label><input type="range" id="alpha-slider" min="0" max="2" step="0.05" value="1"><span class="val" id="alpha-val">1.00</span></div>
+<div class="control-group"><label>β</label><input type="range" id="beta-slider" min="-128" max="128" step="1" value="0"><span class="val" id="beta-val">0</span></div>
+</div>
+<div class="row"><div class="col"><label class="img-label">Original</label><canvas id="affine-orig"></canvas></div><div class="col"><label class="img-label">Transformed</label><canvas id="affine-out"></canvas></div></div>
+</div>
+<!-- Gamma -->
+<div class="sub-section">
+<h3>Gamma: clip(I<sup>γ</sup>, 0, 255)</h3>
+<div class="controls">
+<div class="control-group"><label>γ</label><input type="range" id="gamma-slider" min="0.3" max="3.0" step="0.05" value="1.0"><span class="val" id="gamma-val">1.00</span></div>
+</div>
+<div class="row"><div class="col"><label class="img-label">Original</label><canvas id="gamma-orig"></canvas></div><div class="col"><label class="img-label">Transformed</label><canvas id="gamma-out"></canvas></div></div>
+</div>
+</div>
+</section>
+
+<!-- 6. Geometric Transforms -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>6 · Geometric Transformations</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-geo">
+<div class="geo-grid" id="geo-grid"></div>
+</div>
+</section>
+
+<!-- 7. Image Filtering -->
+<section>
+<div class="section-header" onclick="toggleSection(this)">
+<h2>7 · Image Filtering</h2><span class="toggle">▾</span>
+</div>
+<div class="section-body" id="sec-filter">
+<div class="filter-panel" id="filter-panel"></div>
+<p class="note">Filters run on a downscaled copy for performance. Large kernels may take a moment.</p>
+</div>
+</section>
+
+</div><!-- /container -->
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+/* ─── helpers ─── */
+function clamp(v,lo=0,hi=255){return v<lo?lo:v>hi?hi:v}
+
+function makeCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
+
+function drawGray(data,w,h){
+  const c=makeCanvas(w,h), ctx=c.getContext('2d'), id=ctx.createImageData(w,h);
+  for(let i=0;i<w*h;i++){id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=data[i];id.data[i*4+3]=255}
+  ctx.putImageData(id,0,0);return c;
+}
+
+function imgToRGBA(img){
+  const c=makeCanvas(img.width,img.height),ctx=c.getContext('2d');
+  ctx.drawImage(img,0,0);return ctx.getImageData(0,0,img.width,img.height);
+}
+
+function appendCanvas(parent,canvas,label){
+  const col=document.createElement('div');col.className='col';
+  if(label){const l=document.createElement('label');l.className='img-label';l.textContent=label;col.appendChild(l)}
+  canvas.style.maxWidth='100%';col.appendChild(canvas);parent.appendChild(col);
+}
+
+function copyImageData(src){
+  const dst=new ImageData(src.width,src.height);dst.data.set(src.data);return dst;
+}
+
+/* ─── section toggle ─── */
+window.toggleSection=function(hdr){
+  hdr.classList.toggle('collapsed');
+  hdr.nextElementSibling.classList.toggle('hidden');
+};
+
+/* ─── load image with GitHub fallback ─── */
+const GITHUB_RAW='https://raw.githubusercontent.com/chrirupp/cv_course/main/data/';
+function imgFallback(img,localSrc){
+  const fn=localSrc.split('/').pop();
+  img.onerror=()=>{if(!img.src.startsWith(GITHUB_RAW)){console.log('Local failed, trying GitHub');img.crossOrigin='anonymous';img.src=GITHUB_RAW+fn;}};
+}
+const img=new Image();
+if(location.protocol!=='file:')img.crossOrigin='anonymous';
+imgFallback(img,'data/image.jpg');
+img.src='data/image.jpg';
+
+img.onload=()=>{
+  document.getElementById('loader').classList.add('done');
+  const W=img.width, H=img.height;
+  const srcData=imgToRGBA(img);
+  const px=srcData.data;
+
+  const R=new Uint8Array(W*H), G=new Uint8Array(W*H), B=new Uint8Array(W*H), GRAY=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){
+    R[i]=px[i*4]; G[i]=px[i*4+1]; B[i]=px[i*4+2];
+    GRAY[i]=Math.round(0.299*R[i]+0.587*G[i]+0.114*B[i]);
+  }
+
+  /* 1. RGB channels */
+  {
+    const row=document.getElementById('rgb-row');
+    appendCanvas(row,drawGray(R,W,H),'Red Channel');
+    appendCanvas(row,drawGray(G,W,H),'Green Channel');
+    appendCanvas(row,drawGray(B,W,H),'Blue Channel');
+  }
+
+  /* 2. Grayscale */
+  {
+    const row=document.getElementById('gray-row');
+    const oc=makeCanvas(W,H);oc.getContext('2d').drawImage(img,0,0);
+    appendCanvas(row,oc,'Original');
+    appendCanvas(row,drawGray(GRAY,W,H),'Grayscale (0.299R + 0.587G + 0.114B)');
+  }
+
+  /* 3. 3D Heightmap */
+  build3D(GRAY,W,H);
+
+  /* 4. Subsampling */
+  buildSubsampling(srcData,W,H);
+
+  /* 5. Point-wise */
+  buildPointwise(srcData,W,H);
+
+  /* 6. Geometric */
+  buildGeometric(img,W,H);
+
+  /* 7. Filtering */
+  buildFiltering(srcData,W,H);
+};
+
+img.onerror=()=>{
+  document.getElementById('loader').innerHTML='<p style="color:var(--red)">Failed to load data/image.jpg</p>';
+};
+
+/* ═══════════════════════════════════════
+   3. 3D Heightmap
+   ═══════════════════════════════════════ */
+function build3D(gray,W,H){
+  const container=document.getElementById('heightmap-container');
+  const step=4;
+  const gw=Math.floor(W/step), gh=Math.floor(H/step);
+
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0f1117);
+
+  const aspect=container.clientWidth/container.clientHeight;
+  const camera=new THREE.PerspectiveCamera(50,aspect,0.1,2000);
+  camera.position.set(gw*0.5,120,gh*1.1);
+
+  const renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(container.clientWidth,container.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  container.appendChild(renderer.domElement);
+
+  const controls=new OrbitControls(camera,renderer.domElement);
+  controls.target.set(gw*0.5,0,gh*0.5);
+  controls.enableDamping=true;
+  controls.autoRotate=true;
+  controls.autoRotateSpeed=1.5;
+  controls.update();
+
+  const geo=new THREE.PlaneGeometry(gw,gh,gw-1,gh-1);
+  geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position;
+  const colors=new Float32Array(pos.count*3);
+
+  for(let i=0;i<pos.count;i++){
+    const xi=Math.round(pos.getX(i)+gw/2);
+    const zi=Math.round(pos.getZ(i)+gh/2);
+    const sx=Math.min(xi*step,W-1), sy=Math.min(zi*step,H-1);
+    const v=gray[sy*W+sx];
+    const h=v/255*40;
+    pos.setY(i,h);
+    const t=v/255;
+    colors[i*3]=0.15+t*0.55;
+    colors[i*3+1]=0.25+t*0.5;
+    colors[i*3+2]=0.45+t*0.55;
+  }
+  geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  geo.computeVertexNormals();
+
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,flatShading:false,roughness:0.7});
+  scene.add(new THREE.Mesh(geo,mat));
+
+  scene.add(new THREE.AmbientLight(0xffffff,0.5));
+  const dl=new THREE.DirectionalLight(0xffffff,0.8);
+  dl.position.set(gw,80,-gh);
+  scene.add(dl);
+
+  let t0=performance.now();
+  function animate(){
+    requestAnimationFrame(animate);
+    const elapsed=(performance.now()-t0)/1000;
+    camera.position.y=80+40*Math.sin(elapsed*0.3);
+    controls.update();
+    renderer.render(scene,camera);
+  }
+  animate();
+
+  const ro=new ResizeObserver(()=>{
+    const w=container.clientWidth,h=container.clientHeight;
+    camera.aspect=w/h;camera.updateProjectionMatrix();
+    renderer.setSize(w,h);
+  });
+  ro.observe(container);
+}
+
+/* ═══════════════════════════════════════
+   4. Subsampling
+   ═══════════════════════════════════════ */
+function buildSubsampling(srcData,W,H){
+  const factors=[2,4,8,16];
+  const directRow=document.getElementById('subsample-direct');
+  const blurRow=document.getElementById('subsample-blur');
+
+  factors.forEach(f=>{
+    const sw=Math.floor(W/f), sh=Math.floor(H/f);
+
+    /* direct */
+    const dc=makeCanvas(W,H),dctx=dc.getContext('2d');
+    const small=makeCanvas(sw,sh),sctx=small.getContext('2d');
+    const sid=sctx.createImageData(sw,sh);
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
+      const si=(y*f*W+x*f)*4, di=(y*sw+x)*4;
+      sid.data[di]=srcData.data[si];sid.data[di+1]=srcData.data[si+1];
+      sid.data[di+2]=srcData.data[si+2];sid.data[di+3]=255;
+    }
+    sctx.putImageData(sid,0,0);
+    dctx.imageSmoothingEnabled=false;
+    dctx.drawImage(small,0,0,W,H);
+    dc.classList.add('display-canvas');
+
+    const cell1=document.createElement('div');cell1.className='cell';
+    cell1.appendChild(dc);
+    const lbl1=document.createElement('div');lbl1.className='img-label';lbl1.textContent=`×${f}`;
+    cell1.appendChild(lbl1);
+    directRow.appendChild(cell1);
+
+    /* blur then subsample */
+    const blurred=boxBlurImageData(srcData,W,H,f);
+    const bc=makeCanvas(W,H),bctx=bc.getContext('2d');
+    const small2=makeCanvas(sw,sh),sctx2=small2.getContext('2d');
+    const sid2=sctx2.createImageData(sw,sh);
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
+      const si=(y*f*W+x*f)*4, di=(y*sw+x)*4;
+      sid2.data[di]=blurred[si];sid2.data[di+1]=blurred[si+1];
+      sid2.data[di+2]=blurred[si+2];sid2.data[di+3]=255;
+    }
+    sctx2.putImageData(sid2,0,0);
+    bctx.imageSmoothingEnabled=false;
+    bctx.drawImage(small2,0,0,W,H);
+    bc.classList.add('display-canvas');
+
+    const cell2=document.createElement('div');cell2.className='cell';
+    cell2.appendChild(bc);
+    const lbl2=document.createElement('div');lbl2.className='img-label';lbl2.textContent=`×${f} (blur first)`;
+    cell2.appendChild(lbl2);
+    blurRow.appendChild(cell2);
+  });
+}
+
+function boxBlurImageData(srcData,W,H,k){
+  const out=new Uint8ClampedArray(srcData.data.length);
+  const half=Math.floor(k/2);
+  const px=srcData.data;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    let rr=0,gg=0,bb=0,cnt=0;
+    for(let dy=-half;dy<=half;dy++) for(let dx=-half;dx<=half;dx++){
+      const nx=Math.min(W-1,Math.max(0,x+dx)), ny=Math.min(H-1,Math.max(0,y+dy));
+      const i=(ny*W+nx)*4;
+      rr+=px[i];gg+=px[i+1];bb+=px[i+2];cnt++;
+    }
+    const o=(y*W+x)*4;
+    out[o]=rr/cnt;out[o+1]=gg/cnt;out[o+2]=bb/cnt;out[o+3]=255;
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════
+   5. Point-wise Transforms
+   ═══════════════════════════════════════ */
+function buildPointwise(srcData,W,H){
+  const px=srcData.data;
+
+  /* negative */
+  {
+    const row=document.getElementById('neg-row');
+    const oc=makeCanvas(W,H);oc.getContext('2d').putImageData(srcData,0,0);
+    appendCanvas(row,oc,'Original');
+    const nc=makeCanvas(W,H),nctx=nc.getContext('2d');
+    const nd=nctx.createImageData(W,H);
+    for(let i=0;i<W*H;i++){nd.data[i*4]=255-px[i*4];nd.data[i*4+1]=255-px[i*4+1];nd.data[i*4+2]=255-px[i*4+2];nd.data[i*4+3]=255}
+    nctx.putImageData(nd,0,0);
+    appendCanvas(row,nc,'Negative (255 − I)');
+  }
+
+  /* affine */
+  {
+    const origC=document.getElementById('affine-orig');
+    origC.width=W;origC.height=H;origC.getContext('2d').putImageData(srcData,0,0);
+    const outC=document.getElementById('affine-out');
+    outC.width=W;outC.height=H;
+    const alphaS=document.getElementById('alpha-slider'),betaS=document.getElementById('beta-slider');
+    const alphaV=document.getElementById('alpha-val'),betaV=document.getElementById('beta-val');
+    function updateAffine(){
+      const a=parseFloat(alphaS.value), b=parseFloat(betaS.value);
+      alphaV.textContent=a.toFixed(2);betaV.textContent=b;
+      const ctx=outC.getContext('2d'),od=ctx.createImageData(W,H);
+      for(let i=0;i<W*H;i++){
+        od.data[i*4]=clamp(Math.round(px[i*4]*a+b));
+        od.data[i*4+1]=clamp(Math.round(px[i*4+1]*a+b));
+        od.data[i*4+2]=clamp(Math.round(px[i*4+2]*a+b));
+        od.data[i*4+3]=255;
+      }
+      ctx.putImageData(od,0,0);
+    }
+    alphaS.addEventListener('input',updateAffine);
+    betaS.addEventListener('input',updateAffine);
+    updateAffine();
+  }
+
+  /* gamma */
+  {
+    const origC=document.getElementById('gamma-orig');
+    origC.width=W;origC.height=H;origC.getContext('2d').putImageData(srcData,0,0);
+    const outC=document.getElementById('gamma-out');
+    outC.width=W;outC.height=H;
+    const gammaS=document.getElementById('gamma-slider'),gammaV=document.getElementById('gamma-val');
+    function updateGamma(){
+      const g=parseFloat(gammaS.value);
+      gammaV.textContent=g.toFixed(2);
+      const lut=new Uint8Array(256);
+      for(let i=0;i<256;i++) lut[i]=clamp(Math.round(Math.pow(i,g)));
+      const ctx=outC.getContext('2d'),od=ctx.createImageData(W,H);
+      for(let i=0;i<W*H;i++){
+        od.data[i*4]=lut[px[i*4]];
+        od.data[i*4+1]=lut[px[i*4+1]];
+        od.data[i*4+2]=lut[px[i*4+2]];
+        od.data[i*4+3]=255;
+      }
+      ctx.putImageData(od,0,0);
+    }
+    gammaS.addEventListener('input',updateGamma);
+    updateGamma();
+  }
+}
+
+/* ═══════════════════════════════════════
+   6. Geometric Transformations
+   ═══════════════════════════════════════ */
+function buildGeometric(img,W,H){
+  const grid=document.getElementById('geo-grid');
+  const defs=[
+    {name:'Translation',params:[{id:'tx',label:'dx',min:-200,max:200,step:1,val:0},{id:'ty',label:'dy',min:-200,max:200,step:1,val:0}],
+      matrix:(p)=>[1,0,p.tx,0,1,p.ty]},
+    {name:'Scaling',params:[{id:'sc',label:'s',min:0.2,max:3,step:0.05,val:1}],
+      matrix:(p)=>[p.sc,0,0,0,p.sc,0]},
+    {name:'Rotation',params:[{id:'rot',label:'θ (deg)',min:0,max:360,step:1,val:0}],
+      matrix:(p)=>{const a=p.rot*Math.PI/180;return[Math.cos(a),-Math.sin(a),0,Math.sin(a),Math.cos(a),0]}},
+    {name:'Horizontal Shear',params:[{id:'shx',label:'m',min:-1,max:1,step:0.05,val:0}],
+      matrix:(p)=>[1,p.shx,0,0,1,0]},
+    {name:'Vertical Shear',params:[{id:'shy',label:'m',min:-1,max:1,step:0.05,val:0}],
+      matrix:(p)=>[1,0,0,p.shy,1,0]},
+  ];
+
+  const CW=Math.min(560,W), scale=CW/W, CH=Math.round(H*scale);
+  const FW=CW*2, FH=CH*2;
+
+  defs.forEach(def=>{
+    const card=document.createElement('div');card.className='geo-card';
+    const h4=document.createElement('h4');h4.textContent=def.name;card.appendChild(h4);
+
+    const ctrls=document.createElement('div');ctrls.className='controls';
+    const vals={};
+    def.params.forEach(p=>{
+      const g=document.createElement('div');g.className='control-group';
+      const lb=document.createElement('label');lb.textContent=p.label;
+      const inp=document.createElement('input');inp.type='range';inp.min=p.min;inp.max=p.max;inp.step=p.step;inp.value=p.val;
+      const sp=document.createElement('span');sp.className='val';sp.textContent=Number(p.val).toFixed(p.step<1?2:0);
+      g.appendChild(lb);g.appendChild(inp);g.appendChild(sp);ctrls.appendChild(g);
+      vals[p.id]=p.val;
+      inp.addEventListener('input',()=>{
+        vals[p.id]=parseFloat(inp.value);
+        sp.textContent=vals[p.id].toFixed(p.step<1?2:0);
+        draw();
+      });
+    });
+    card.appendChild(ctrls);
+
+    const cvs=document.createElement('canvas');cvs.width=FW;cvs.height=FH;
+    cvs.style.width='100%';cvs.style.borderRadius='4px';
+    card.appendChild(cvs);
+    grid.appendChild(card);
+
+    function draw(){
+      const ctx=cvs.getContext('2d');
+      ctx.clearRect(0,0,FW,FH);
+      ctx.fillStyle='#181b24';ctx.fillRect(0,0,FW,FH);
+
+      const ox=FW/2, oy=FH/2;
+
+      /* grid */
+      ctx.strokeStyle='#2a2e3e';ctx.lineWidth=0.5;
+      for(let x=0;x<FW;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,FH);ctx.stroke()}
+      for(let y=0;y<FH;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(FW,y);ctx.stroke()}
+
+      /* axes */
+      ctx.strokeStyle='#556';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(FW,oy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,FH);ctx.stroke();
+
+      ctx.save();
+      ctx.translate(ox,oy);
+      const m=def.matrix(vals);
+      ctx.transform(m[0],m[3],m[1],m[4],m[2]*scale,m[5]*scale);
+      ctx.drawImage(img,-CW/2,-CH/2,CW,CH);
+      ctx.restore();
+
+      /* axis labels */
+      ctx.fillStyle='#667';ctx.font='11px monospace';
+      ctx.fillText('x',FW-14,oy-6);ctx.fillText('y',ox+6,12);
+    }
+    draw();
+  });
+}
+
+/* ═══════════════════════════════════════
+   7. Image Filtering
+   ═══════════════════════════════════════ */
+function buildFiltering(srcData,W,H){
+  const panel=document.getElementById('filter-panel');
+  const DS=4;
+  const sw=Math.floor(W/DS), sh=Math.floor(H/DS);
+  const small=downsample(srcData,W,H,DS);
+
+  /* salt-and-pepper noise for median demo */
+  const noisy=new Uint8ClampedArray(small.length);
+  noisy.set(small);
+  const nPix=sw*sh;
+  for(let i=0;i<Math.floor(nPix*0.05);i++){
+    const idx=Math.floor(Math.random()*nPix)*4;
+    const v=Math.random()<0.5?0:255;
+    noisy[idx]=noisy[idx+1]=noisy[idx+2]=v;
+  }
+
+  const filters=[
+    {name:'Average Filter',param:{id:'avgK',label:'Kernel n',min:1,max:41,step:2,val:1},
+      fn:(k)=>boxFilter(small,sw,sh,k)},
+    {name:'Gaussian Filter',param:{id:'gaussS',label:'σ',min:1,max:15,step:1,val:1},
+      fn:(s)=>gaussianFilter(small,sw,sh,s)},
+    {name:'Median Filter (salt & pepper noise)',param:{id:'medK',label:'Kernel n',min:3,max:19,step:2,val:3},
+      fn:(k)=>medianFilter(noisy,sw,sh,k),src:noisy},
+    {name:'Bilateral Filter',param:{id:'bilS',label:'σ',min:3,max:43,step:2,val:3},
+      fn:(s)=>bilateralFilter(small,sw,sh,s)},
+  ];
+
+  filters.forEach(f=>{
+    const card=document.createElement('div');card.className='filter-card';
+    const h4=document.createElement('h4');h4.textContent=f.name;card.appendChild(h4);
+
+    const ctrls=document.createElement('div');ctrls.className='controls';
+    const g=document.createElement('div');g.className='control-group';
+    const lb=document.createElement('label');lb.textContent=f.param.label;
+    const inp=document.createElement('input');inp.type='range';inp.min=f.param.min;inp.max=f.param.max;inp.step=f.param.step;inp.value=f.param.val;
+    const sp=document.createElement('span');sp.className='val';sp.textContent=f.param.val;
+    g.appendChild(lb);g.appendChild(inp);g.appendChild(sp);ctrls.appendChild(g);
+    card.appendChild(ctrls);
+
+    const rowDiv=document.createElement('div');rowDiv.style.display='flex';rowDiv.style.gap='10px';rowDiv.style.justifyContent='center';rowDiv.style.flexWrap='wrap';
+
+    const srcC=makeCanvas(sw,sh);
+    putPixels(srcC,f.src||small,sw,sh);
+    srcC.style.maxWidth='48%';srcC.style.borderRadius='4px';
+    const srcWrap=document.createElement('div');srcWrap.style.textAlign='center';
+    const srcLbl=document.createElement('div');srcLbl.className='img-label';srcLbl.textContent=f.src?'Noisy':'Original';
+    srcWrap.appendChild(srcLbl);srcWrap.appendChild(srcC);rowDiv.appendChild(srcWrap);
+
+    const outC=makeCanvas(sw,sh);
+    outC.style.maxWidth='48%';outC.style.borderRadius='4px';
+    const outWrap=document.createElement('div');outWrap.style.textAlign='center';
+    const outLbl=document.createElement('div');outLbl.className='img-label';outLbl.textContent='Filtered';
+    outWrap.appendChild(outLbl);outWrap.appendChild(outC);rowDiv.appendChild(outWrap);
+    card.appendChild(rowDiv);
+    panel.appendChild(card);
+
+    let pending=false;
+    function update(){
+      if(pending)return;pending=true;
+      requestAnimationFrame(()=>{
+        const v=parseFloat(inp.value);
+        sp.textContent=v;
+        const res=f.fn(v);
+        putPixels(outC,res,sw,sh);
+        pending=false;
+      });
+    }
+    inp.addEventListener('input',update);
+    update();
+  });
+}
+
+function downsample(srcData,W,H,f){
+  const sw=Math.floor(W/f),sh=Math.floor(H/f);
+  const out=new Uint8ClampedArray(sw*sh*4);
+  for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
+    const si=(y*f*W+x*f)*4, di=(y*sw+x)*4;
+    out[di]=srcData.data[si];out[di+1]=srcData.data[si+1];out[di+2]=srcData.data[si+2];out[di+3]=255;
+  }
+  return out;
+}
+
+function putPixels(canvas,data,w,h){
+  canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d'),id=ctx.createImageData(w,h);
+  id.data.set(data);ctx.putImageData(id,0,0);
+}
+
+/* --- filter implementations --- */
+
+function boxFilter(data,w,h,k){
+  if(k<=1)return new Uint8ClampedArray(data);
+  const out=new Uint8ClampedArray(data.length);
+  const half=Math.floor(k/2);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let r=0,g=0,b=0,cnt=0;
+    for(let dy=-half;dy<=half;dy++) for(let dx=-half;dx<=half;dx++){
+      const nx=Math.min(w-1,Math.max(0,x+dx)),ny=Math.min(h-1,Math.max(0,y+dy));
+      const i=(ny*w+nx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];cnt++;
+    }
+    const o=(y*w+x)*4;
+    out[o]=r/cnt;out[o+1]=g/cnt;out[o+2]=b/cnt;out[o+3]=255;
+  }
+  return out;
+}
+
+function gaussianKernel(sigma){
+  const r=Math.ceil(sigma*3),size=2*r+1;
+  const k=new Float64Array(size*size);
+  let sum=0;
+  for(let y=-r;y<=r;y++) for(let x=-r;x<=r;x++){
+    const v=Math.exp(-(x*x+y*y)/(2*sigma*sigma));
+    k[(y+r)*size+(x+r)]=v;sum+=v;
+  }
+  for(let i=0;i<k.length;i++)k[i]/=sum;
+  return{kernel:k,radius:r,size};
+}
+
+function gaussianFilter(data,w,h,sigma){
+  if(sigma<=0)return new Uint8ClampedArray(data);
+  const{kernel,radius,size}=gaussianKernel(sigma);
+  const out=new Uint8ClampedArray(data.length);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let r=0,g=0,b=0;
+    for(let ky=-radius;ky<=radius;ky++) for(let kx=-radius;kx<=radius;kx++){
+      const nx=Math.min(w-1,Math.max(0,x+kx)),ny=Math.min(h-1,Math.max(0,y+ky));
+      const wt=kernel[(ky+radius)*size+(kx+radius)];
+      const i=(ny*w+nx)*4;
+      r+=data[i]*wt;g+=data[i+1]*wt;b+=data[i+2]*wt;
+    }
+    const o=(y*w+x)*4;
+    out[o]=clamp(Math.round(r));out[o+1]=clamp(Math.round(g));out[o+2]=clamp(Math.round(b));out[o+3]=255;
+  }
+  return out;
+}
+
+function medianFilter(data,w,h,k){
+  const out=new Uint8ClampedArray(data.length);
+  const half=Math.floor(k/2);
+  const buf=new Uint8Array(k*k);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    for(let c=0;c<3;c++){
+      let cnt=0;
+      for(let dy=-half;dy<=half;dy++) for(let dx=-half;dx<=half;dx++){
+        const nx=Math.min(w-1,Math.max(0,x+dx)),ny=Math.min(h-1,Math.max(0,y+dy));
+        buf[cnt++]=data[(ny*w+nx)*4+c];
+      }
+      const sorted=buf.subarray(0,cnt).sort();
+      const o=(y*w+x)*4;
+      out[o+c]=sorted[Math.floor(cnt/2)];
+    }
+    out[(y*w+x)*4+3]=255;
+  }
+  return out;
+}
+
+function bilateralFilter(data,w,h,sigma){
+  const sigmaS=sigma, sigmaR=sigma*2;
+  const radius=Math.min(Math.ceil(sigmaS*1.5),15);
+  const out=new Uint8ClampedArray(data.length);
+  const twoSS=2*sigmaS*sigmaS, twoSR=2*sigmaR*sigmaR;
+
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const ci=(y*w+x)*4;
+    let rr=0,gg=0,bb=0,wSum=0;
+    for(let dy=-radius;dy<=radius;dy++) for(let dx=-radius;dx<=radius;dx++){
+      const nx=Math.min(w-1,Math.max(0,x+dx)),ny=Math.min(h-1,Math.max(0,y+dy));
+      const ni=(ny*w+nx)*4;
+      const spatialW=Math.exp(-(dx*dx+dy*dy)/twoSS);
+      const dr=data[ni]-data[ci],dg=data[ni+1]-data[ci+1],db=data[ni+2]-data[ci+2];
+      const rangeW=Math.exp(-(dr*dr+dg*dg+db*db)/twoSR);
+      const wt=spatialW*rangeW;
+      rr+=data[ni]*wt;gg+=data[ni+1]*wt;bb+=data[ni+2]*wt;wSum+=wt;
+    }
+    out[ci]=clamp(Math.round(rr/wSum));
+    out[ci+1]=clamp(Math.round(gg/wSum));
+    out[ci+2]=clamp(Math.round(bb/wSum));
+    out[ci+3]=255;
+  }
+  return out;
+}
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+
+</script>
+</body>
+</html>

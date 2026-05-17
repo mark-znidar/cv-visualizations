@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lecture 16 — Generative Models: Flow Matching &amp; ODEs</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --border: #2a2d3a;
+  --text: #e0e0e8;
+  --text-dim: #8888a0;
+  --accent: #6c8cff;
+  --accent2: #ff6ca8;
+  --accent3: #4ecdc4;
+  --accent4: #ffe66d;
+  --green: #50fa7b;
+  --red: #ff5555;
+  --orange: #ffb86c;
+}
+[data-theme="light"] {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --border: #d5d7e2;
+  --text: #1a1d2e;
+  --text-dim: #5c6078;
+  --accent: #4a6ae5;
+  --accent2: #e0458a;
+  --accent3: #2e9e96;
+  --accent4: #c9a020;
+  --green: #18a770;
+  --red: #dc3545;
+  --orange: #d49030;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  padding: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.back-link:hover { opacity: 1; }
+h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.subtitle { color: var(--text-dim); margin-bottom: 30px; font-size: 1.05rem; }
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+  transition: background 0.2s;
+}
+.section-header:hover { background: rgba(108,140,255,0.06); }
+.section-header h2 { font-size: 1.2rem; flex: 1; }
+.section-header .tag {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(108,140,255,0.15);
+  color: var(--accent);
+  font-weight: 600;
+}
+.chevron {
+  width: 20px; height: 20px;
+  transition: transform 0.3s;
+  color: var(--text-dim);
+}
+.chevron.open { transform: rotate(180deg); }
+.section-body {
+  padding: 0 20px 20px;
+  display: none;
+}
+.section-body.open { display: block; }
+.section-body p {
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  font-size: 0.93rem;
+}
+canvas {
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #12141e;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 14px;
+  justify-content: center;
+}
+.controls label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.controls input[type="range"] {
+  width: 160px;
+  accent-color: var(--accent);
+}
+.controls button {
+  padding: 6px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(108,140,255,0.12);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.controls button:hover {
+  background: rgba(108,140,255,0.25);
+}
+.val {
+  display: inline-block;
+  min-width: 36px;
+  text-align: right;
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.math {
+  font-family: 'Cambria Math', 'Latin Modern Math', Georgia, serif;
+  font-style: italic;
+  color: var(--accent3);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.theme-toggle{position:fixed;top:20px;right:20px;z-index:1000;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" id="themeBtn">&#9790;</button>
+
+<a href="index.html" class="back-link">&larr; Back to Index</a>
+
+<h1>Lecture 16 — Generative Models</h1>
+<p class="subtitle">Flow Matching, ODEs, and Euler's Method</p>
+
+<!-- Section 1: Target Distribution -->
+<div class="section" id="sec-target">
+  <div class="section-header" onclick="toggleSection('sec-target')">
+    <h2>1. Target Data Distribution (Smiley Face)</h2>
+    <span class="tag">STATIC</span>
+    <svg class="chevron open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body open">
+    <p>The target distribution is a 2D smiley face built from sampled points along a circle (face outline), two dots (eyes), and an arc (mouth), each perturbed with small Gaussian noise.</p>
+    <canvas id="c-target" width="560" height="560"></canvas>
+    <div class="controls">
+      <button onclick="regenerateTarget()">Regenerate</button>
+      <label>Points: <input type="range" id="npts" min="200" max="3000" step="100" value="1200"> <span class="val" id="npts-val">1200</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2: Flow Matching Training -->
+<div class="section" id="sec-flow">
+  <div class="section-header" onclick="toggleSection('sec-flow')">
+    <h2>2. Flow Matching — Trajectories</h2>
+    <span class="tag">ANIMATED</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>Particles follow straight-line (linear interpolation) paths from noise (<span class="math">t=0</span>) to data (<span class="math">t=1</span>): &nbsp;<span class="math">x<sub>t</sub> = (1−t) x<sub>0</sub> + t x<sub>1</sub></span></p>
+    <canvas id="c-flow" width="560" height="560"></canvas>
+    <div class="controls">
+      <button id="btn-flow" onclick="toggleFlowAnim()">Play</button>
+      <label>Speed: <input type="range" id="flow-speed" min="0.1" max="3" step="0.1" value="1"> <span class="val" id="flow-speed-val">1.0</span></label>
+      <label><span class="math">t</span> = <span class="val" id="flow-t-val">0.00</span></label>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#6c8cff"></span>Noise (source)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#ff6ca8"></span>Data (target)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#ffe66d"></span>Current particles</span>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Vector Field -->
+<div class="section" id="sec-vf">
+  <div class="section-header" onclick="toggleSection('sec-vf')">
+    <h2>3. Velocity Vector Field</h2>
+    <span class="tag">INTERACTIVE</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>The learned velocity field <span class="math">v(x<sub>t</sub>, t) = x<sub>1</sub> − x<sub>0</sub></span> shown as arrows on a grid. Arrows point from the current interpolated position toward the target. Drag the slider to see how the field changes with time.</p>
+    <canvas id="c-vf" width="560" height="560"></canvas>
+    <div class="controls">
+      <label><span class="math">t</span>: <input type="range" id="vf-t" min="0" max="1" step="0.01" value="0"> <span class="val" id="vf-t-val">0.00</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: Sample Generation -->
+<div class="section" id="sec-gen">
+  <div class="section-header" onclick="toggleSection('sec-gen')">
+    <h2>4. Sample Generation (ODE Integration)</h2>
+    <span class="tag">ANIMATED</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>Starting from noise, we integrate <span class="math">dx/dt = v(x, t)</span> via Euler's method to generate new samples that match the target distribution.</p>
+    <canvas id="c-gen" width="560" height="560"></canvas>
+    <div class="controls">
+      <button id="btn-gen" onclick="toggleGenAnim()">Play</button>
+      <label>Speed: <input type="range" id="gen-speed" min="0.1" max="3" step="0.1" value="1"> <span class="val" id="gen-speed-val">1.0</span></label>
+      <label>Euler steps: <input type="range" id="gen-steps" min="5" max="100" step="5" value="50"> <span class="val" id="gen-steps-val">50</span></label>
+      <label><span class="math">t</span> = <span class="val" id="gen-t-val">0.00</span></label>
+      <button onclick="resetGen()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5: Simple ODE -->
+<div class="section" id="sec-ode">
+  <div class="section-header" onclick="toggleSection('sec-ode')">
+    <h2>5. Simple ODE: dx/dt = −x</h2>
+    <span class="tag">INTERACTIVE</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>Analytical solution: <span class="math">x(t) = x(0) · e<sup>−t</sup></span>. Drag the slider to change the initial condition.</p>
+    <canvas id="c-ode" width="560" height="340"></canvas>
+    <div class="controls">
+      <label><span class="math">x(0)</span>: <input type="range" id="ode-x0" min="-3" max="3" step="0.1" value="2"> <span class="val" id="ode-x0-val">2.0</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6: Euler's Method -->
+<div class="section" id="sec-euler">
+  <div class="section-header" onclick="toggleSection('sec-euler')">
+    <h2>6. Euler's Method Visualization</h2>
+    <span class="tag">INTERACTIVE</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>Compare the true solution <span class="math">x(t) = x(0) e<sup>−t</sup></span> with Euler steps <span class="math">x(t+Δt) = x(t) + Δt · f(x, t)</span>. Larger step sizes yield less accurate (and eventually unstable) approximations.</p>
+    <canvas id="c-euler" width="560" height="380"></canvas>
+    <div class="controls">
+      <label><span class="math">Δt</span>: <input type="range" id="euler-dt" min="0.01" max="2.0" step="0.01" value="0.5"> <span class="val" id="euler-dt-val">0.50</span></label>
+      <label><span class="math">x(0)</span>: <input type="range" id="euler-x0" min="-3" max="3" step="0.1" value="2"> <span class="val" id="euler-x0-val">2.0</span></label>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#4ecdc4"></span>True solution</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#ff6ca8"></span>Euler approximation</span>
+    </div>
+  </div>
+</div>
+
+<!-- Section 7: Multiple Euler Step Sizes -->
+<div class="section" id="sec-multi">
+  <div class="section-header" onclick="toggleSection('sec-multi')">
+    <h2>7. Multiple Euler Step Sizes</h2>
+    <span class="tag">VISUALIZATION</span>
+    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="section-body">
+    <p>Euler approximations with step sizes <span class="math">Δt ∈ {0.1, 0.5, 1.0, 1.5, 2.0, 2.5}</span>. For <span class="math">Δt &gt; 2</span> the method becomes unstable and oscillates.</p>
+    <canvas id="c-multi" width="560" height="400"></canvas>
+    <div class="controls">
+      <label><span class="math">x(0)</span>: <input type="range" id="multi-x0" min="-3" max="3" step="0.1" value="2"> <span class="val" id="multi-x0-val">2.0</span></label>
+    </div>
+    <div class="legend" id="multi-legend"></div>
+  </div>
+</div>
+
+<script>
+// ===== Utility functions =====
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function toggleSection(id) {
+  const sec = document.getElementById(id);
+  const body = sec.querySelector('.section-body');
+  const chev = sec.querySelector('.chevron');
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+// ===== Smiley face dataset =====
+function generateSmiley(n) {
+  const pts = [];
+  const nFace = Math.floor(n * 0.45);
+  const nEye = Math.floor(n * 0.12);
+  const nMouth = n - nFace - 2 * nEye;
+  const noise = 0.06;
+
+  for (let i = 0; i < nFace; i++) {
+    const a = Math.random() * 2 * Math.PI;
+    pts.push([2.2 * Math.cos(a) + randn() * noise, 2.2 * Math.sin(a) + randn() * noise]);
+  }
+  for (let i = 0; i < nEye; i++) {
+    pts.push([-0.7 + randn() * 0.15, 0.7 + randn() * 0.15]);
+  }
+  for (let i = 0; i < nEye; i++) {
+    pts.push([0.7 + randn() * 0.15, 0.7 + randn() * 0.15]);
+  }
+  for (let i = 0; i < nMouth; i++) {
+    const a = Math.PI + (Math.random() * Math.PI * 0.6 - Math.PI * 0.3);
+    const r = 1.2;
+    pts.push([r * Math.cos(a) + randn() * noise, r * Math.sin(a) + 0.1 + randn() * noise]);
+  }
+  return pts;
+}
+
+let targetPts = [];
+let noisePts = [];
+
+function generateNoise(n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([randn() * 2, randn() * 2]);
+  return pts;
+}
+
+function w2c(x, y, W, H, range) {
+  return [(x / range + 0.5) * W, (0.5 - y / range) * H];
+}
+
+// ===== Section 1: Target Distribution =====
+function drawTarget() {
+  const c = document.getElementById('c-target');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const range = 6;
+  // grid
+  ctx.strokeStyle = '#1e2030';
+  ctx.lineWidth = 1;
+  for (let v = -3; v <= 3; v++) {
+    const [px, py] = w2c(v, 0, W, H, range);
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    const [_, py2] = w2c(0, v, W, H, range);
+    ctx.beginPath(); ctx.moveTo(0, py2); ctx.lineTo(W, py2); ctx.stroke();
+  }
+  // axes
+  ctx.strokeStyle = '#2a2d3a';
+  ctx.lineWidth = 1.5;
+  const [ox, oy] = w2c(0, 0, W, H, range);
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke();
+
+  for (const [x, y] of targetPts) {
+    const [px, py] = w2c(x, y, W, H, range);
+    ctx.beginPath();
+    ctx.arc(px, py, 2.2, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,106,168,0.7)';
+    ctx.fill();
+  }
+}
+
+function regenerateTarget() {
+  const n = parseInt(document.getElementById('npts').value);
+  document.getElementById('npts-val').textContent = n;
+  targetPts = generateSmiley(n);
+  noisePts = generateNoise(n);
+  drawTarget();
+  drawVectorField();
+}
+
+document.getElementById('npts').addEventListener('input', regenerateTarget);
+
+// ===== Section 2: Flow Matching Trajectories =====
+let flowT = 0, flowPlaying = false, flowRaf = null;
+
+function drawFlow(t) {
+  const c = document.getElementById('c-flow');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const range = 7;
+
+  // dim source
+  for (let i = 0; i < noisePts.length; i++) {
+    const [px, py] = w2c(noisePts[i][0], noisePts[i][1], W, H, range);
+    ctx.beginPath(); ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(108,140,255,0.15)';
+    ctx.fill();
+  }
+  // dim target
+  for (let i = 0; i < targetPts.length; i++) {
+    const [px, py] = w2c(targetPts[i][0], targetPts[i][1], W, H, range);
+    ctx.beginPath(); ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,106,168,0.15)';
+    ctx.fill();
+  }
+
+  const N = Math.min(targetPts.length, noisePts.length);
+  const trailSteps = 12;
+  for (let i = 0; i < N; i++) {
+    const x0 = noisePts[i], x1 = targetPts[i];
+    // trail
+    for (let s = 0; s < trailSteps; s++) {
+      const tt = Math.max(0, t - s * 0.008);
+      const ix = (1 - tt) * x0[0] + tt * x1[0];
+      const iy = (1 - tt) * x0[1] + tt * x1[1];
+      const [px, py] = w2c(ix, iy, W, H, range);
+      const alpha = (1 - s / trailSteps) * 0.3;
+      ctx.beginPath(); ctx.arc(px, py, 1.8 - s * 0.1, 0, 2 * Math.PI);
+      ctx.fillStyle = `rgba(255,230,109,${alpha})`;
+      ctx.fill();
+    }
+    // current point
+    const ix = (1 - t) * x0[0] + t * x1[0];
+    const iy = (1 - t) * x0[1] + t * x1[1];
+    const [px, py] = w2c(ix, iy, W, H, range);
+    const hue = (i / N * 360) | 0;
+    ctx.beginPath(); ctx.arc(px, py, 2.5, 0, 2 * Math.PI);
+    ctx.fillStyle = `hsla(${hue},85%,70%,0.85)`;
+    ctx.fill();
+  }
+
+  document.getElementById('flow-t-val').textContent = t.toFixed(2);
+}
+
+function flowLoop(ts) {
+  if (!flowPlaying) return;
+  const speed = parseFloat(document.getElementById('flow-speed').value);
+  flowT += 0.004 * speed;
+  if (flowT > 1) flowT = 0;
+  drawFlow(flowT);
+  flowRaf = requestAnimationFrame(flowLoop);
+}
+
+function toggleFlowAnim() {
+  flowPlaying = !flowPlaying;
+  document.getElementById('btn-flow').textContent = flowPlaying ? 'Pause' : 'Play';
+  if (flowPlaying) flowRaf = requestAnimationFrame(flowLoop);
+}
+
+document.getElementById('flow-speed').addEventListener('input', function() {
+  document.getElementById('flow-speed-val').textContent = parseFloat(this.value).toFixed(1);
+});
+
+// ===== Section 3: Vector Field =====
+function drawVectorField() {
+  const c = document.getElementById('c-vf');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const range = 7;
+  const t = parseFloat(document.getElementById('vf-t').value);
+  document.getElementById('vf-t-val').textContent = t.toFixed(2);
+
+  const N = Math.min(targetPts.length, noisePts.length);
+  if (N === 0) return;
+
+  // build a velocity field by nearest-neighbor interpolation from sample pairs
+  const gridN = 22;
+  const step = range / gridN;
+
+  for (let gi = 0; gi <= gridN; gi++) {
+    for (let gj = 0; gj <= gridN; gj++) {
+      const gx = -range / 2 + gi * step;
+      const gy = -range / 2 + gj * step;
+
+      // find closest pair based on x_t position
+      let bestD = Infinity, bestIdx = 0;
+      for (let k = 0; k < N; k++) {
+        const xt = (1 - t) * noisePts[k][0] + t * targetPts[k][0];
+        const yt = (1 - t) * noisePts[k][1] + t * targetPts[k][1];
+        const d = (xt - gx) ** 2 + (yt - gy) ** 2;
+        if (d < bestD) { bestD = d; bestIdx = k; }
+      }
+
+      const vx = targetPts[bestIdx][0] - noisePts[bestIdx][0];
+      const vy = targetPts[bestIdx][1] - noisePts[bestIdx][1];
+      const mag = Math.sqrt(vx * vx + vy * vy);
+      if (mag < 0.01) continue;
+
+      const arrowLen = Math.min(mag * 1.8, step * 0.85);
+      const nx = vx / mag, ny = vy / mag;
+
+      const [px, py] = w2c(gx, gy, W, H, range);
+      const ex = px + nx * arrowLen * (W / range);
+      const ey = py - ny * arrowLen * (H / range);
+
+      const alpha = Math.min(1, mag / 4);
+      const hue = (mag / 5 * 240) | 0;
+      ctx.strokeStyle = `hsla(${280 - hue},80%,65%,${0.3 + alpha * 0.5})`;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      // arrowhead
+      const headLen = 5;
+      const angle = Math.atan2(ey - py, ex - px);
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * Math.cos(angle - 0.4), ey - headLen * Math.sin(angle - 0.4));
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * Math.cos(angle + 0.4), ey - headLen * Math.sin(angle + 0.4));
+      ctx.stroke();
+    }
+  }
+
+  // overlay current particles faintly
+  for (let i = 0; i < N; i++) {
+    const xt = (1 - t) * noisePts[i][0] + t * targetPts[i][0];
+    const yt = (1 - t) * noisePts[i][1] + t * targetPts[i][1];
+    const [px, py] = w2c(xt, yt, W, H, range);
+    ctx.beginPath(); ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,230,109,0.25)';
+    ctx.fill();
+  }
+}
+
+document.getElementById('vf-t').addEventListener('input', drawVectorField);
+
+// ===== Section 4: Sample Generation =====
+let genT = 0, genPlaying = false, genRaf = null;
+let genParticles = [];
+
+function initGen() {
+  const n = Math.min(targetPts.length, 600);
+  genParticles = [];
+  for (let i = 0; i < n; i++) {
+    genParticles.push({ x: randn() * 2, y: randn() * 2, trail: [] });
+  }
+  genT = 0;
+  document.getElementById('gen-t-val').textContent = '0.00';
+}
+
+function eulerStepGen(particles, t, dt) {
+  const N = Math.min(targetPts.length, noisePts.length);
+  for (const p of particles) {
+    let bestD = Infinity, bestIdx = 0;
+    for (let k = 0; k < N; k++) {
+      const xt = (1 - t) * noisePts[k][0] + t * targetPts[k][0];
+      const yt = (1 - t) * noisePts[k][1] + t * targetPts[k][1];
+      const d = (xt - p.x) ** 2 + (yt - p.y) ** 2;
+      if (d < bestD) { bestD = d; bestIdx = k; }
+    }
+    const vx = targetPts[bestIdx][0] - noisePts[bestIdx][0];
+    const vy = targetPts[bestIdx][1] - noisePts[bestIdx][1];
+    p.x += vx * dt;
+    p.y += vy * dt;
+    p.trail.push([p.x, p.y]);
+    if (p.trail.length > 40) p.trail.shift();
+  }
+}
+
+function drawGen() {
+  const c = document.getElementById('c-gen');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const range = 7;
+
+  // ghost target
+  for (const [x, y] of targetPts) {
+    const [px, py] = w2c(x, y, W, H, range);
+    ctx.beginPath(); ctx.arc(px, py, 1.5, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,106,168,0.08)';
+    ctx.fill();
+  }
+
+  for (let i = 0; i < genParticles.length; i++) {
+    const p = genParticles[i];
+    const hue = (i / genParticles.length * 360) | 0;
+    // trail
+    for (let s = 0; s < p.trail.length; s++) {
+      const [tx, ty] = p.trail[s];
+      const [px, py] = w2c(tx, ty, W, H, range);
+      const alpha = (s / p.trail.length) * 0.3;
+      ctx.beginPath(); ctx.arc(px, py, 1.2, 0, 2 * Math.PI);
+      ctx.fillStyle = `hsla(${hue},80%,65%,${alpha})`;
+      ctx.fill();
+    }
+    // current
+    const [px, py] = w2c(p.x, p.y, W, H, range);
+    ctx.beginPath(); ctx.arc(px, py, 2.5, 0, 2 * Math.PI);
+    ctx.fillStyle = `hsla(${hue},85%,70%,0.9)`;
+    ctx.fill();
+  }
+
+  document.getElementById('gen-t-val').textContent = genT.toFixed(2);
+}
+
+function genLoop() {
+  if (!genPlaying || genT >= 1) {
+    if (genT >= 1) { genPlaying = false; document.getElementById('btn-gen').textContent = 'Play'; }
+    return;
+  }
+  const speed = parseFloat(document.getElementById('gen-speed').value);
+  const nSteps = parseInt(document.getElementById('gen-steps').value);
+  const dt = 1 / nSteps;
+  genT = Math.min(1, genT + dt * speed);
+  eulerStepGen(genParticles, genT, dt * speed);
+  drawGen();
+  genRaf = requestAnimationFrame(genLoop);
+}
+
+function toggleGenAnim() {
+  if (genT >= 1) initGen();
+  genPlaying = !genPlaying;
+  document.getElementById('btn-gen').textContent = genPlaying ? 'Pause' : 'Play';
+  if (genPlaying) genRaf = requestAnimationFrame(genLoop);
+}
+
+function resetGen() {
+  genPlaying = false;
+  document.getElementById('btn-gen').textContent = 'Play';
+  initGen();
+  drawGen();
+}
+
+document.getElementById('gen-speed').addEventListener('input', function() {
+  document.getElementById('gen-speed-val').textContent = parseFloat(this.value).toFixed(1);
+});
+document.getElementById('gen-steps').addEventListener('input', function() {
+  document.getElementById('gen-steps-val').textContent = this.value;
+});
+
+// ===== Section 5: Simple ODE dx/dt = -x =====
+function drawODE() {
+  const c = document.getElementById('c-ode');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const x0 = parseFloat(document.getElementById('ode-x0').value);
+  document.getElementById('ode-x0-val').textContent = x0.toFixed(1);
+
+  const pad = { l: 55, r: 20, t: 25, b: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const tMax = 6, xRange = 3.5;
+
+  function t2px(t) { return pad.l + (t / tMax) * pw; }
+  function x2py(x) { return pad.t + ph / 2 - (x / xRange) * (ph / 2); }
+
+  // grid
+  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 1;
+  for (let t = 0; t <= tMax; t++) {
+    const px = t2px(t);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, pad.t + ph); ctx.stroke();
+  }
+  for (let x = -3; x <= 3; x++) {
+    const py = x2py(x);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(pad.l + pw, py); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = '#3a3d4a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, x2py(0)); ctx.lineTo(pad.l + pw, x2py(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(t2px(0), pad.t); ctx.lineTo(t2px(0), pad.t + ph); ctx.stroke();
+
+  // labels
+  ctx.fillStyle = var_textDim; ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= tMax; t++) ctx.fillText(t, t2px(t), pad.t + ph + 18);
+  ctx.fillText('t', pad.l + pw / 2, H - 4);
+  ctx.textAlign = 'right';
+  for (let x = -3; x <= 3; x++) if (x !== 0) ctx.fillText(x, pad.l - 8, x2py(x) + 4);
+  ctx.fillText('x(t)', pad.l - 5, pad.t - 4);
+
+  // curve
+  ctx.strokeStyle = '#4ecdc4'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i <= 300; i++) {
+    const t = (i / 300) * tMax;
+    const x = x0 * Math.exp(-t);
+    const px = t2px(t), py = x2py(x);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // start dot
+  ctx.beginPath(); ctx.arc(t2px(0), x2py(x0), 5, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffe66d'; ctx.fill();
+  ctx.fillStyle = '#ffe66d'; ctx.font = 'bold 13px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText(`x(0) = ${x0.toFixed(1)}`, t2px(0) + 10, x2py(x0) - 8);
+}
+
+const var_textDim = '#8888a0';
+
+document.getElementById('ode-x0').addEventListener('input', drawODE);
+
+// ===== Section 6: Euler's Method =====
+function drawEuler() {
+  const c = document.getElementById('c-euler');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const dt = parseFloat(document.getElementById('euler-dt').value);
+  const x0 = parseFloat(document.getElementById('euler-x0').value);
+  document.getElementById('euler-dt-val').textContent = dt.toFixed(2);
+  document.getElementById('euler-x0-val').textContent = x0.toFixed(1);
+
+  const pad = { l: 55, r: 20, t: 25, b: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const tMax = 6;
+
+  // compute Euler to find y-range
+  const eulerPts = [[0, x0]];
+  let xc = x0;
+  for (let t = 0; t < tMax; t += dt) {
+    xc = xc + dt * (-xc);
+    eulerPts.push([Math.min(t + dt, tMax + 0.5), xc]);
+  }
+  let maxAbs = 3.5;
+  for (const [, x] of eulerPts) maxAbs = Math.max(maxAbs, Math.abs(x) * 1.15);
+  const xRange = Math.min(maxAbs, 15);
+
+  function t2px(t) { return pad.l + (t / tMax) * pw; }
+  function x2py(x) { return pad.t + ph / 2 - (x / xRange) * (ph / 2); }
+
+  // grid
+  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 1;
+  for (let t = 0; t <= tMax; t++) {
+    ctx.beginPath(); ctx.moveTo(t2px(t), pad.t); ctx.lineTo(t2px(t), pad.t + ph); ctx.stroke();
+  }
+
+  // axis
+  ctx.strokeStyle = '#3a3d4a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, x2py(0)); ctx.lineTo(pad.l + pw, x2py(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(t2px(0), pad.t); ctx.lineTo(t2px(0), pad.t + ph); ctx.stroke();
+
+  ctx.fillStyle = var_textDim; ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= tMax; t++) ctx.fillText(t, t2px(t), pad.t + ph + 18);
+  ctx.fillText('t', pad.l + pw / 2, H - 4);
+
+  // true solution
+  ctx.strokeStyle = '#4ecdc4'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i <= 300; i++) {
+    const t = (i / 300) * tMax;
+    const x = x0 * Math.exp(-t);
+    const px = t2px(t), py = x2py(x);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Euler steps
+  ctx.strokeStyle = '#ff6ca8'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(t2px(eulerPts[0][0]), x2py(eulerPts[0][1]));
+  for (let i = 1; i < eulerPts.length; i++) {
+    const [t, x] = eulerPts[i];
+    if (t > tMax + 0.01) break;
+    ctx.lineTo(t2px(t), x2py(x));
+  }
+  ctx.stroke();
+
+  // dots at Euler steps
+  for (let i = 0; i < eulerPts.length; i++) {
+    const [t, x] = eulerPts[i];
+    if (t > tMax + 0.01) break;
+    ctx.beginPath(); ctx.arc(t2px(t), x2py(x), 3.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#ff6ca8'; ctx.fill();
+  }
+
+  // error shading
+  ctx.fillStyle = 'rgba(255,85,85,0.08)';
+  ctx.beginPath();
+  for (let i = 0; i <= 300; i++) {
+    const t = (i / 300) * tMax;
+    ctx.lineTo(t2px(t), x2py(x0 * Math.exp(-t)));
+  }
+  let eIdx = eulerPts.length - 1;
+  while (eIdx >= 0 && eulerPts[eIdx][0] > tMax + 0.01) eIdx--;
+  for (let i = eIdx; i >= 0; i--) {
+    ctx.lineTo(t2px(eulerPts[i][0]), x2py(eulerPts[i][1]));
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+document.getElementById('euler-dt').addEventListener('input', drawEuler);
+document.getElementById('euler-x0').addEventListener('input', drawEuler);
+
+// ===== Section 7: Multiple Euler Step Sizes =====
+const multiDts = [0.1, 0.5, 1.0, 1.5, 2.0, 2.5];
+const multiColors = ['#6c8cff', '#4ecdc4', '#ffe66d', '#ffb86c', '#ff6ca8', '#ff5555'];
+
+function drawMulti() {
+  const c = document.getElementById('c-multi');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const x0 = parseFloat(document.getElementById('multi-x0').value);
+  document.getElementById('multi-x0-val').textContent = x0.toFixed(1);
+
+  const pad = { l: 55, r: 20, t: 25, b: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const tMax = 6;
+
+  // compute all Euler to find y-range
+  let maxAbs = 3.5;
+  const allSeries = multiDts.map(dt => {
+    const pts = [[0, x0]];
+    let xc = x0;
+    for (let t = 0; t < tMax; t += dt) {
+      xc = xc + dt * (-xc);
+      pts.push([t + dt, xc]);
+      maxAbs = Math.max(maxAbs, Math.abs(xc) * 1.1);
+    }
+    return pts;
+  });
+  const xRange = Math.min(maxAbs, 20);
+
+  function t2px(t) { return pad.l + (t / tMax) * pw; }
+  function x2py(x) { return pad.t + ph / 2 - (x / xRange) * (ph / 2); }
+
+  // grid
+  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 1;
+  for (let t = 0; t <= tMax; t++) {
+    ctx.beginPath(); ctx.moveTo(t2px(t), pad.t); ctx.lineTo(t2px(t), pad.t + ph); ctx.stroke();
+  }
+
+  // axis
+  ctx.strokeStyle = '#3a3d4a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, x2py(0)); ctx.lineTo(pad.l + pw, x2py(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(t2px(0), pad.t); ctx.lineTo(t2px(0), pad.t + ph); ctx.stroke();
+
+  ctx.fillStyle = var_textDim; ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= tMax; t++) ctx.fillText(t, t2px(t), pad.t + ph + 18);
+
+  // true solution (bold white)
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  for (let i = 0; i <= 300; i++) {
+    const t = (i / 300) * tMax;
+    const x = x0 * Math.exp(-t);
+    if (i === 0) ctx.moveTo(t2px(t), x2py(x)); else ctx.lineTo(t2px(t), x2py(x));
+  }
+  ctx.stroke();
+
+  // Euler curves
+  allSeries.forEach((pts, idx) => {
+    ctx.strokeStyle = multiColors[idx];
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash(idx > 3 ? [6, 4] : []);
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const [t, x] = pts[i];
+      if (t > tMax + 0.5) break;
+      if (i === 0) ctx.moveTo(t2px(t), x2py(x)); else ctx.lineTo(t2px(t), x2py(x));
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // stability label
+  ctx.fillStyle = '#ff5555';
+  ctx.font = 'bold 12px system-ui';
+  ctx.textAlign = 'right';
+  ctx.fillText('Unstable for Δt > 2', W - pad.r - 5, pad.t + 18);
+}
+
+// legend for section 7
+(function buildMultiLegend() {
+  const el = document.getElementById('multi-legend');
+  el.innerHTML = '<span class="legend-item"><span class="legend-dot" style="background:#fff"></span>True solution</span>';
+  multiDts.forEach((dt, i) => {
+    el.innerHTML += `<span class="legend-item"><span class="legend-dot" style="background:${multiColors[i]}"></span>Δt = ${dt}</span>`;
+  });
+})();
+
+document.getElementById('multi-x0').addEventListener('input', drawMulti);
+
+// ===== Init =====
+regenerateTarget();
+drawFlow(0);
+drawVectorField();
+initGen(); drawGen();
+drawODE();
+drawEuler();
+drawMulti();
+
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('cv-theme',t);
+  document.getElementById('themeBtn').innerHTML=t==='light'?'&#9728;':'&#9790;';
+}
+(function(){
+  const saved=localStorage.getItem('cv-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
+})();
+</script>
+</body>
+</html>
