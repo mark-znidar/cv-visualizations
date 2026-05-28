@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>1D FFT Paint Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #e5e5ea;
+    --text: #111;
+    --muted: #6b6b76;
+    --accent: #3b82f6;
+    --accent-soft: #dbeafe;
+    --signal: #2563eb;
+    --recon: #ef4444;
+    --mask: rgba(239, 68, 68, .45);
+    --grid: #eef0f4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 28px 60px;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .lead { margin: 0 0 22px; color: var(--muted); }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  .card .hint {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0 2px;
+  }
+  button {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  button:hover { background: #f3f4f6; }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: #2563eb; }
+  button.small { padding: 4px 8px; }
+  .row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .row label { color: var(--muted); }
+  .row input[type=range] { width: 110px; }
+  .stat {
+    display: inline-flex;
+    background: var(--accent-soft);
+    color: #1d4ed8;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .legend {
+    display: flex;
+    gap: 12px;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .swatch.sig { background: var(--signal); }
+  .swatch.rec { background: var(--recon); }
+  .swatch.bas { background: #9333ea; }
+  details { margin-top: 18px; font-size: 13px; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+  code { background: #f1f3f7; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  @media (max-width: 880px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>1D FFT Paint Lab</h1>
+<p class="lead">Paint a signal in time, watch the spectrum update live. Mask frequencies and the reconstruction redraws instantly. Hover the spectrum to see the pure sinusoid each bin represents.</p>
+
+<div class="grid">
+
+  <!-- ============= 1. SIGNAL PAD ============= -->
+  <div class="card">
+    <h2>1. Signal x(t)</h2>
+    <p class="hint">Left-drag to draw · right-drag (or shift-drag) erases to zero · hold ⌥/Alt to add to the existing signal</p>
+    <canvas id="sigCanvas" width="512" height="220"></canvas>
+    <div class="controls">
+      <button id="btnClear">Clear</button>
+      <button id="btnPreset" data-p="impulse" class="small">δ impulse</button>
+      <button id="btnPreset2" data-p="sine">sin (low)</button>
+      <button id="btnPreset3" data-p="sineHi">sin (high)</button>
+      <button id="btnPreset4" data-p="square">square</button>
+      <button id="btnPreset5" data-p="triangle">triangle</button>
+      <button id="btnPreset6" data-p="twotone">two tones</button>
+      <button id="btnPreset7" data-p="chirp">chirp</button>
+      <button id="btnPreset8" data-p="noise">noise</button>
+      <button id="btnPreset9" data-p="step">step</button>
+    </div>
+    <div class="legend">
+      <span><span class="swatch sig"></span>signal x[n]</span>
+      <span><span id="statN" class="stat">N = 256</span></span>
+    </div>
+  </div>
+
+  <!-- ============= 2. SPECTRUM ============= -->
+  <div class="card">
+    <h2>2. Magnitude spectrum |X(k)|</h2>
+    <p class="hint">DC on the left, Nyquist on the right · hover any bar to see the sinusoid basis at that frequency</p>
+    <canvas id="specCanvas" width="512" height="220"></canvas>
+    <div class="row">
+      <label><input type="checkbox" id="logScale" checked> log scale</label>
+      <label><input type="checkbox" id="showPhase"> show phase (dim line)</label>
+    </div>
+    <div class="legend">
+      <span id="bin-label">hover a frequency bin…</span>
+    </div>
+  </div>
+
+  <!-- ============= 3. MASK ============= -->
+  <div class="card">
+    <h2>3. Frequency mask (paint to kill)</h2>
+    <p class="hint">Left-drag kills · right-drag (or shift) restores · resets reflect in the spectrum and reconstruction below</p>
+    <canvas id="maskCanvas" width="512" height="220"></canvas>
+    <div class="controls">
+      <button id="btnMaskReset">Reset mask</button>
+      <button id="btnMaskInvert">Invert mask</button>
+      <button id="btnLowpass">↓ low-pass</button>
+      <button id="btnHighpass">↑ high-pass</button>
+      <button id="btnBandpass">band-pass mid</button>
+      <button id="btnNotchDC">notch DC</button>
+      <label class="row">brush
+        <input type="range" id="maskBrush" min="1" max="20" value="3">
+      </label>
+    </div>
+  </div>
+
+  <!-- ============= 4. RECONSTRUCTION ============= -->
+  <div class="card">
+    <h2>4. Reconstruction (inverse FFT)</h2>
+    <p class="hint">The signal you get back from the masked spectrum · compare with the original</p>
+    <canvas id="reconCanvas" width="512" height="220"></canvas>
+    <div class="legend">
+      <span><span class="swatch sig"></span>original</span>
+      <span><span class="swatch rec"></span>reconstructed</span>
+      <span><span class="swatch bas"></span>hovered basis</span>
+      <span id="rmsLabel" style="margin-left:auto"></span>
+    </div>
+  </div>
+
+</div>
+
+<details open>
+  <summary>What does each panel teach?</summary>
+  <p><b>Signal pad.</b> A discrete real-valued sequence x[n] of length N = 256. Index n is time (or position along a 1-D line). Amplitude on the y-axis is in [-1, +1] (and gets clipped to that range visually but values keep their sign).</p>
+  <p><b>Magnitude spectrum.</b> |X[k]| for k = 0..N/2. Bin k corresponds to frequency k/N cycles per sample. k = 0 is DC (the mean); k = N/2 is the Nyquist frequency (alternating ±1). For a real signal the negative-frequency half is the complex conjugate of the positive half, so we just show k = 0..N/2.</p>
+  <p><b>Hover to inspect.</b> Hovering bin k draws (in purple) the pure cosine basis function <code>cos(2π k n / N)</code> scaled by the magnitude. This is exactly what that bin contributes to the reconstruction. The phase of X[k] decides whether it's a cos, a sin, or somewhere in between.</p>
+  <p><b>Mask.</b> Painting on the spectrum sets the corresponding X[k] (both magnitude and phase) to zero. This is the same operation as setting frequencies to zero in an image-processing low-pass / band-pass filter — only here in 1-D.</p>
+  <p><b>Reconstruction.</b> Inverse FFT of the masked spectrum. RMS error is computed against the original. Try: drawing a sharp square wave then low-passing it — you see Gibbs ringing. Or drawing a constant + low sinusoid, then notching DC — the constant disappears.</p>
+  <p style="margin-top:14px"><b>Things to try:</b></p>
+  <ul style="margin:4px 0 0 18px; padding:0; color: var(--text);">
+    <li>Click <code>square</code>, then <code>↓ low-pass</code> — watch Gibbs ringing appear.</li>
+    <li>Click <code>noise</code>, then <code>↑ high-pass</code> — only the bumpy high frequencies survive.</li>
+    <li>Click <code>two tones</code>, then mask one of the two peaks — the other tone alone reconstructs.</li>
+    <li>Click <code>δ impulse</code> — the spectrum is flat (every frequency contributes equally to a spike).</li>
+    <li>Click <code>step</code> — the spectrum has the 1/k envelope of a step's Fourier series.</li>
+  </ul>
+</details>
+
+<script>
+/* ============================================================
+   1-D radix-2 Cooley-Tukey FFT (in-place)
+   ============================================================ */
+function fft(re, im) {
+  const N = re.length;
+  // bit reversal
+  let j = 0;
+  for (let i = 1; i < N; i++) {
+    let bit = N >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let len = 2; len <= N; len <<= 1) {
+    const half = len >> 1;
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for (let i = 0; i < N; i += len) {
+      let cRe = 1, cIm = 0;
+      for (let k = 0; k < half; k++) {
+        const aRe = re[i + k],          aIm = im[i + k];
+        const bRe = re[i + k + half] * cRe - im[i + k + half] * cIm;
+        const bIm = re[i + k + half] * cIm + im[i + k + half] * cRe;
+        re[i + k]        = aRe + bRe;
+        im[i + k]        = aIm + bIm;
+        re[i + k + half] = aRe - bRe;
+        im[i + k + half] = aIm - bIm;
+        const nRe = cRe * wRe - cIm * wIm;
+        cIm = cRe * wIm + cIm * wRe;
+        cRe = nRe;
+      }
+    }
+  }
+}
+function ifft(re, im) {
+  const N = re.length;
+  for (let i = 0; i < N; i++) im[i] = -im[i];
+  fft(re, im);
+  for (let i = 0; i < N; i++) {
+    re[i] /= N;
+    im[i] = -im[i] / N;
+  }
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+const N = 256;                       // signal length
+const NH = N / 2 + 1;                // unique bins for real signal
+let signal = new Float32Array(N);    // x[n], real
+let mask = new Uint8Array(NH);       // 1 = keep, 0 = kill
+mask.fill(1);
+let specRe = new Float32Array(N);
+let specIm = new Float32Array(N);
+let recon = new Float32Array(N);
+
+let hoverBin = -1;
+
+/* ============================================================
+   Canvases
+   ============================================================ */
+const sigCnv = document.getElementById('sigCanvas');
+const specCnv = document.getElementById('specCanvas');
+const maskCnv = document.getElementById('maskCanvas');
+const reconCnv = document.getElementById('reconCanvas');
+const sigCtx = sigCnv.getContext('2d');
+const specCtx = specCnv.getContext('2d');
+const maskCtx = maskCnv.getContext('2d');
+const reconCtx = reconCnv.getContext('2d');
+
+/* ============================================================
+   Drawing helpers
+   ============================================================ */
+function drawGrid(ctx, W, H, yMid) {
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#eef0f4';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const x = (i * W / 8) | 0;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke();
+  }
+  ctx.strokeStyle = '#d1d5db';
+  ctx.beginPath();
+  ctx.moveTo(0, yMid + 0.5); ctx.lineTo(W, yMid + 0.5); ctx.stroke();
+}
+
+function drawSignal(ctx, arr, color, opts = {}) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const yMid = H / 2;
+  if (!opts.skipGrid) drawGrid(ctx, W, H, yMid);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = opts.thick ? 2.0 : 1.4;
+  ctx.beginPath();
+  for (let i = 0; i < arr.length; i++) {
+    const x = (i / (arr.length - 1)) * W;
+    const y = yMid - arr[i] * (H / 2 - 6);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function drawSpectrum() {
+  const ctx = specCtx;
+  const W = specCnv.width, H = specCnv.height;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  const useLog = document.getElementById('logScale').checked;
+  const showPh = document.getElementById('showPhase').checked;
+
+  // compute magnitudes (positive freq half)
+  const mags = new Float32Array(NH);
+  const phs  = new Float32Array(NH);
+  let maxMag = 1e-9;
+  for (let k = 0; k < NH; k++) {
+    const re = specRe[k], im = specIm[k];
+    let m = Math.sqrt(re*re + im*im);
+    mags[k] = m;
+    phs[k]  = Math.atan2(im, re);
+    if (m > maxMag) maxMag = m;
+  }
+
+  // soft grid
+  ctx.strokeStyle = '#eef0f4';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const x = (i * W / 8) | 0;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke();
+  }
+
+  // bars
+  const barW = W / NH;
+  for (let k = 0; k < NH; k++) {
+    const m = mags[k];
+    let h;
+    if (useLog) {
+      const v = m / maxMag;
+      h = v <= 0 ? 0 : (Math.log10(1 + 99 * v) / 2) * H * 0.96;
+    } else {
+      h = (m / maxMag) * H * 0.96;
+    }
+    const x = k * barW;
+    const masked = mask[k];
+    ctx.fillStyle = masked
+      ? (k === hoverBin ? '#9333ea' : '#2563eb')
+      : 'rgba(150, 150, 160, .35)';
+    ctx.fillRect(x, H - h, Math.max(1, barW - 0.4), h);
+  }
+
+  // phase as a thin dim line
+  if (showPh) {
+    ctx.strokeStyle = 'rgba(220, 80, 80, .55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let k = 0; k < NH; k++) {
+      const x = (k + 0.5) * barW;
+      const y = H / 2 - (phs[k] / Math.PI) * (H / 2 - 6);
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // hover marker
+  if (hoverBin >= 0 && hoverBin < NH) {
+    const x = (hoverBin + 0.5) * barW;
+    ctx.strokeStyle = '#9333ea';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    const f = hoverBin / N;
+    const label = document.getElementById('bin-label');
+    label.innerHTML =
+      `<b>bin k = ${hoverBin}</b> · f = ${f.toFixed(4)} cyc/sample · ` +
+      `period ≈ ${hoverBin === 0 ? '∞' : (N/hoverBin).toFixed(1)} samples · ` +
+      `|X| = ${mags[hoverBin].toFixed(3)} · ∠X = ${(phs[hoverBin]*180/Math.PI).toFixed(0)}°` +
+      (mask[hoverBin] ? '' : ' · <i style="color:#ef4444">(killed)</i>');
+  } else {
+    document.getElementById('bin-label').textContent = 'hover a frequency bin…';
+  }
+}
+
+function drawMask() {
+  const ctx = maskCtx;
+  const W = maskCnv.width, H = maskCnv.height;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  // grid
+  ctx.strokeStyle = '#eef0f4';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const x = (i * W / 8) | 0;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke();
+  }
+  // killed bins as red bars
+  const barW = W / NH;
+  ctx.fillStyle = 'rgba(239, 68, 68, .55)';
+  for (let k = 0; k < NH; k++) {
+    if (!mask[k]) {
+      ctx.fillRect(k * barW, 0, Math.max(1, barW - 0.4), H);
+    }
+  }
+  ctx.fillStyle = 'rgba(37, 99, 235, .25)';
+  for (let k = 0; k < NH; k++) {
+    if (mask[k]) {
+      ctx.fillRect(k * barW, H - 4, Math.max(1, barW - 0.4), 4);
+    }
+  }
+  // hover marker
+  if (hoverBin >= 0 && hoverBin < NH) {
+    const x = (hoverBin + 0.5) * barW;
+    ctx.strokeStyle = '#9333ea';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+}
+
+function drawReconstruction() {
+  const ctx = reconCtx;
+  const W = reconCnv.width, H = reconCnv.height;
+  const yMid = H / 2;
+  drawGrid(ctx, W, H, yMid);
+
+  // original (dim)
+  ctx.strokeStyle = 'rgba(37, 99, 235, .35)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = (i / (N - 1)) * W;
+    const y = yMid - signal[i] * (H / 2 - 6);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // reconstruction
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = (i / (N - 1)) * W;
+    const y = yMid - recon[i] * (H / 2 - 6);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // hovered basis (purple)
+  if (hoverBin >= 0 && hoverBin < NH) {
+    const re = specRe[hoverBin], im = specIm[hoverBin];
+    const m = Math.sqrt(re*re + im*im);
+    const ph = Math.atan2(im, re);
+    // scale: a single bin contributes 2*|X[k]|/N (k>0, k<N/2) or |X[k]|/N at k=0 or N/2
+    const scale = (hoverBin === 0 || hoverBin === N/2) ? (m / N) : (2 * m / N);
+    ctx.strokeStyle = 'rgba(147, 51, 234, .85)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * W;
+      const v = scale * Math.cos(2 * Math.PI * hoverBin * i / N + ph);
+      const y = yMid - v * (H / 2 - 6);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // RMS error
+  let err = 0;
+  for (let i = 0; i < N; i++) {
+    const d = signal[i] - recon[i];
+    err += d * d;
+  }
+  err = Math.sqrt(err / N);
+  document.getElementById('rmsLabel').textContent = `RMS error: ${err.toFixed(4)}`;
+}
+
+/* ============================================================
+   Main recompute (FFT → mask → IFFT)
+   ============================================================ */
+function recompute() {
+  // copy signal to spectrum buffers
+  for (let i = 0; i < N; i++) { specRe[i] = signal[i]; specIm[i] = 0; }
+  fft(specRe, specIm);
+
+  // build masked spectrum
+  const mRe = new Float32Array(N);
+  const mIm = new Float32Array(N);
+  for (let k = 0; k < N; k++) {
+    let kp = k <= N/2 ? k : N - k;     // index into mask (positive freq)
+    if (mask[kp]) {
+      mRe[k] = specRe[k];
+      mIm[k] = specIm[k];
+    }
+  }
+  ifft(mRe, mIm);
+  for (let i = 0; i < N; i++) recon[i] = mRe[i];
+
+  // redraw
+  drawSignal(sigCtx, signal, '#2563eb', { thick: true });
+  drawSpectrum();
+  drawMask();
+  drawReconstruction();
+}
+
+/* ============================================================
+   Mouse: drawing on the signal pad
+   ============================================================ */
+let drag = null;     // 'sig' | 'mask' | null
+let dragMode = null; // 'paint' | 'erase' | 'add'
+let lastIdx = -1;
+let lastVal = null;
+
+function canvasPos(evt, cnv) {
+  const r = cnv.getBoundingClientRect();
+  const x = (evt.clientX - r.left) * (cnv.width / r.width);
+  const y = (evt.clientY - r.top)  * (cnv.height / r.height);
+  return [x, y];
+}
+
+function paintSig(evt) {
+  const [x, y] = canvasPos(evt, sigCnv);
+  const idx = Math.max(0, Math.min(N - 1, Math.round(x / sigCnv.width * (N - 1))));
+  const yMid = sigCnv.height / 2;
+  const v = Math.max(-1, Math.min(1, (yMid - y) / (sigCnv.height / 2 - 6)));
+  let target;
+  if (dragMode === 'erase') target = 0;
+  else if (dragMode === 'add') target = Math.max(-1, Math.min(1, signal[idx] + v));
+  else target = v;
+
+  // interpolate between last point and this one
+  if (lastIdx >= 0 && lastIdx !== idx) {
+    const lo = Math.min(lastIdx, idx), hi = Math.max(lastIdx, idx);
+    const v0 = lastIdx <= idx ? lastVal : target;
+    const v1 = lastIdx <= idx ? target : lastVal;
+    for (let i = lo; i <= hi; i++) {
+      const t = (hi === lo) ? 0 : (i - lo) / (hi - lo);
+      signal[i] = (1 - t) * v0 + t * v1;
+    }
+  } else {
+    signal[idx] = target;
+  }
+  lastIdx = idx; lastVal = target;
+  recompute();
+}
+
+sigCnv.addEventListener('mousedown', (e) => {
+  drag = 'sig';
+  dragMode = (e.button === 2 || e.shiftKey) ? 'erase' : (e.altKey ? 'add' : 'paint');
+  lastIdx = -1; lastVal = null;
+  paintSig(e);
+});
+sigCnv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ============================================================
+   Mouse: spectrum/mask hover + paint
+   ============================================================ */
+function binFromX(x, W) {
+  return Math.max(0, Math.min(NH - 1, Math.floor(x / W * NH)));
+}
+
+function paintMask(evt, kill) {
+  const [x] = canvasPos(evt, maskCnv);
+  const k0 = binFromX(x, maskCnv.width);
+  const brush = parseInt(document.getElementById('maskBrush').value);
+  for (let dk = -brush; dk <= brush; dk++) {
+    const k = k0 + dk;
+    if (k >= 0 && k < NH) mask[k] = kill ? 0 : 1;
+  }
+  recompute();
+}
+
+function hoverFromCanvas(evt, cnv) {
+  const [x] = canvasPos(evt, cnv);
+  hoverBin = binFromX(x, cnv.width);
+  drawSpectrum();
+  drawMask();
+  drawReconstruction();
+}
+
+specCnv.addEventListener('mousemove', (e) => hoverFromCanvas(e, specCnv));
+specCnv.addEventListener('mouseleave', () => { hoverBin = -1; drawSpectrum(); drawMask(); drawReconstruction(); });
+maskCnv.addEventListener('mousemove', (e) => {
+  hoverFromCanvas(e, maskCnv);
+  if (drag === 'mask') paintMask(e, dragMode === 'erase' ? false : true);
+});
+maskCnv.addEventListener('mouseleave', () => { hoverBin = -1; drawSpectrum(); drawMask(); drawReconstruction(); });
+
+maskCnv.addEventListener('mousedown', (e) => {
+  drag = 'mask';
+  dragMode = (e.button === 2 || e.shiftKey) ? 'erase' : 'paint';
+  paintMask(e, dragMode === 'paint');
+});
+maskCnv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+window.addEventListener('mousemove', (e) => {
+  if (drag === 'sig') paintSig(e);
+});
+window.addEventListener('mouseup', () => { drag = null; lastIdx = -1; });
+
+/* ============================================================
+   Presets and buttons
+   ============================================================ */
+function clearSignal() {
+  for (let i = 0; i < N; i++) signal[i] = 0;
+}
+function setPreset(name) {
+  clearSignal();
+  switch (name) {
+    case 'impulse':
+      signal[N/2] = 1; break;
+    case 'sine': {
+      const k = 4;
+      for (let i = 0; i < N; i++) signal[i] = 0.7 * Math.cos(2*Math.PI*k*i/N);
+      break;
+    }
+    case 'sineHi': {
+      const k = 32;
+      for (let i = 0; i < N; i++) signal[i] = 0.7 * Math.cos(2*Math.PI*k*i/N);
+      break;
+    }
+    case 'square': {
+      const k = 4;
+      for (let i = 0; i < N; i++) signal[i] = Math.sin(2*Math.PI*k*i/N) >= 0 ? 0.7 : -0.7;
+      break;
+    }
+    case 'triangle': {
+      const period = 64;
+      for (let i = 0; i < N; i++) {
+        const t = (i % period) / period;
+        signal[i] = 0.8 * (1 - 4 * Math.abs(t - 0.5));
+      }
+      break;
+    }
+    case 'twotone': {
+      for (let i = 0; i < N; i++)
+        signal[i] = 0.45 * Math.cos(2*Math.PI*5*i/N) + 0.45 * Math.cos(2*Math.PI*22*i/N);
+      break;
+    }
+    case 'chirp': {
+      for (let i = 0; i < N; i++) {
+        const f = 0.5 + i / N * 30;
+        signal[i] = 0.7 * Math.cos(2*Math.PI*f*i/N);
+      }
+      break;
+    }
+    case 'noise': {
+      // pink-ish noise via cumulative sum / 2 for visual interest
+      let acc = 0;
+      for (let i = 0; i < N; i++) {
+        acc = acc * 0.5 + (Math.random()*2-1);
+        signal[i] = Math.max(-1, Math.min(1, 0.4 * acc));
+      }
+      break;
+    }
+    case 'step': {
+      for (let i = 0; i < N; i++) signal[i] = i < N/2 ? -0.7 : 0.7;
+      break;
+    }
+  }
+  recompute();
+}
+
+document.getElementById('btnClear').onclick = () => { clearSignal(); recompute(); };
+document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => setPreset(b.dataset.p));
+
+document.getElementById('btnMaskReset').onclick = () => { mask.fill(1); recompute(); };
+document.getElementById('btnMaskInvert').onclick = () => { for (let k = 0; k < NH; k++) mask[k] = mask[k] ? 0 : 1; recompute(); };
+document.getElementById('btnLowpass').onclick = () => {
+  const cutoff = Math.floor(NH * 0.12);
+  for (let k = 0; k < NH; k++) mask[k] = (k <= cutoff) ? 1 : 0;
+  recompute();
+};
+document.getElementById('btnHighpass').onclick = () => {
+  const cutoff = Math.floor(NH * 0.25);
+  for (let k = 0; k < NH; k++) mask[k] = (k >= cutoff) ? 1 : 0;
+  recompute();
+};
+document.getElementById('btnBandpass').onclick = () => {
+  const lo = Math.floor(NH * 0.15), hi = Math.floor(NH * 0.35);
+  for (let k = 0; k < NH; k++) mask[k] = (k >= lo && k <= hi) ? 1 : 0;
+  recompute();
+};
+document.getElementById('btnNotchDC').onclick = () => {
+  for (let k = 0; k < NH; k++) mask[k] = 1;
+  mask[0] = 0;
+  recompute();
+};
+
+document.getElementById('logScale').onchange = recompute;
+document.getElementById('showPhase').onchange = recompute;
+
+/* ============================================================
+   Boot
+   ============================================================ */
+setPreset('twotone');
+</script>
+
+</body>
+</html>

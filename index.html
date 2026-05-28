@@ -181,6 +181,66 @@
   [data-theme="light"] .tag.interactive{background:rgba(24,167,112,0.1);color:#18a770;border-color:rgba(24,167,112,0.3)}
   [data-theme="light"] .card:hover{box-shadow:0 12px 40px rgba(74,106,229,0.12)}
   [data-theme="light"] .hero{background:linear-gradient(135deg,rgba(74,106,229,0.06) 0%,rgba(139,69,214,0.06) 100%)}
+
+  /* FFT card chooser ------------------------------------------------- */
+  .fft-card { cursor: pointer; }
+  .fft-card .card-chooser {
+    display: none;
+    margin-top: 18px;
+    gap: 12px;
+    flex-direction: column;
+  }
+  .fft-card.expanded .card-default { display: none; }
+  .fft-card.expanded .card-chooser { display: flex; }
+  .choose-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    text-decoration: none;
+    transition: border-color .15s, transform .15s, background .15s;
+  }
+  .choose-btn:hover {
+    border-color: var(--accent);
+    transform: translateX(3px);
+    background: rgba(108,140,255,0.10);
+  }
+  .choose-btn .choose-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .choose-btn .choose-dim {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .choose-btn .choose-sub {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+  .choose-btn .choose-arrow {
+    font-size: 1.2rem;
+    color: var(--accent);
+    transition: transform .15s;
+  }
+  .choose-btn:hover .choose-arrow { transform: translateX(4px); }
+  .fft-back {
+    align-self: flex-start;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .fft-back:hover { background: var(--surface2); color: var(--text); }
 </style>
 </head>
 <body>
@@ -199,20 +259,39 @@
 
 <div class="grid">
 
-  <a class="card" href="https://paint-fft-lab.lovable.app/" target="_blank" style="border-color:var(--accent);background:linear-gradient(135deg,rgba(108,140,255,0.08),rgba(168,85,247,0.08))">
+  <div class="card fft-card" id="fft-card" onclick="toggleFFTCard(event)" style="border-color:var(--accent);background:linear-gradient(135deg,rgba(108,140,255,0.08),rgba(168,85,247,0.08))">
     <div class="card-header">
       <div class="card-num" style="background:rgba(255,230,108,0.15);color:#ffe66c;">00</div>
-      <div class="card-title">2D FFT Paint Lab</div>
+      <div class="card-title">FFT Paint Lab</div>
     </div>
     <div class="card-body">
-      <p class="card-desc">A standalone interactive tool for exploring 2D Fourier transforms. Paint or place shapes on a canvas and watch the frequency spectrum update in real-time. Mask individual frequencies, see the reconstruction, and hover to preview basis functions — the most hands-on way to build Fourier intuition.</p>
-      <div class="card-tags">
-        <span class="tag interactive">Interactive Tool</span>
-        <span class="tag">Live FFT</span>
-        <span class="tag">External ↗</span>
+      <div class="card-default">
+        <p class="card-desc">A standalone interactive tool for exploring Fourier transforms. Paint shapes or signals and watch the spectrum update in real-time. Mask individual frequencies, see the reconstruction, and hover to preview basis functions — the most hands-on way to build Fourier intuition. <b>Click to choose 1D or 2D.</b></p>
+        <div class="card-tags">
+          <span class="tag interactive">Interactive Tool</span>
+          <span class="tag">Live FFT</span>
+          <span class="tag">1D &amp; 2D</span>
+        </div>
+      </div>
+      <div class="card-chooser">
+        <a class="choose-btn" href="00_FFT_1D.html" onclick="event.stopPropagation()">
+          <div class="choose-main">
+            <span class="choose-dim">1D version</span>
+            <span class="choose-sub">Paint a time-domain signal · live FFT · mask frequencies · IFFT reconstruction</span>
+          </div>
+          <span class="choose-arrow">→</span>
+        </a>
+        <a class="choose-btn" href="https://paint-fft-lab.lovable.app/" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <div class="choose-main">
+            <span class="choose-dim">2D version <span style="font-size:.7em;color:var(--text-dim);font-weight:400;">(external ↗)</span></span>
+            <span class="choose-sub">Paint a 2D image · 2D FFT magnitude · mask the 2D spectrum · hover any (u, v) bin</span>
+          </div>
+          <span class="choose-arrow">→</span>
+        </a>
+        <button class="fft-back" onclick="event.stopPropagation(); document.getElementById('fft-card').classList.remove('expanded')">← back</button>
       </div>
     </div>
-  </a>
+  </div>
 
   <a class="card" href="02_ImageEnhancement.html">
     <div class="card-header">
@@ -353,6 +432,15 @@ function toggleTheme(){
   const saved=localStorage.getItem('cv-theme');
   if(saved){document.documentElement.setAttribute('data-theme',saved);document.getElementById('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';}
 })();
+</script>
+
+<script>
+function toggleFFTCard(e) {
+  // only toggle if user clicked the card itself or its descendants (not a button inside)
+  const card = document.getElementById('fft-card');
+  if (!card) return;
+  card.classList.toggle('expanded');
+}
 </script>
 </body>
 </html>
