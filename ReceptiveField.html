@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Receptive Field Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #e5e5ea;
+    --text: #111;
+    --muted: #6b6b76;
+    --accent: #3b82f6;
+    --accent-soft: #dbeafe;
+    --cell: #f4f4f7;
+    --cell-border: #e5e5ea;
+    --selected: #ef4444;
+    --rf-fill: rgba(239, 68, 68, 0.32);
+    --rf-edge: #ef4444;
+    --rf-out: rgba(239, 68, 68, 0.12);
+    --hover: #93c5fd;
+    --code-bg: #f1f3f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 28px 60px;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .lead { margin: 0 0 22px; color: var(--muted); max-width: 920px; }
+
+  .settings {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+    align-items: flex-end;
+  }
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 3px solid var(--border);
+    padding-left: 12px;
+  }
+  .group.in   { border-left-color: #06b6d4; }
+  .group.l1   { border-left-color: #6366f1; }
+  .group.l2   { border-left-color: #a855f7; }
+  .group.l3   { border-left-color: #f97316; }
+  .group h4 {
+    margin: 0 0 4px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .group .row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .group label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .group input, .group select {
+    width: 54px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+  }
+  .group input[type=number]::-webkit-outer-spin-button,
+  .group input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .maps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 1100px) { .maps { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .maps { grid-template-columns: 1fr; } }
+
+  .map {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .map h3 {
+    margin: 0;
+    font-size: 13.5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .map h3 .swatch {
+    width: 10px; height: 10px; border-radius: 3px;
+    margin-right: 6px; display: inline-block; vertical-align: middle;
+  }
+  .map h3 .size {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  .map .op {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .grid-wrap {
+    position: relative;
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fafafa;
+    overflow: visible;
+  }
+  .grid {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    gap: 1px;
+    padding: 0;
+  }
+  .cell {
+    background: var(--cell);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.08s, transform 0.05s;
+    position: relative;
+  }
+  .cell:hover { background: var(--hover); }
+  .cell.selected {
+    background: var(--selected) !important;
+    box-shadow: 0 0 0 2px #b91c1c;
+    z-index: 5;
+  }
+  .cell.rf {
+    background: var(--rf-fill);
+  }
+  .cell.out-of-bounds {
+    background: repeating-linear-gradient(
+      45deg, rgba(0,0,0,0.05), rgba(0,0,0,0.05) 3px,
+      transparent 3px, transparent 6px);
+    cursor: default;
+  }
+  /* Out-of-bounds RF rectangle drawn as positioned overlay */
+  .rf-box {
+    position: absolute;
+    border: 2px solid var(--rf-edge);
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 4;
+    background: var(--rf-out);
+  }
+
+  .info {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .info h2 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .info table {
+    border-collapse: collapse;
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+  }
+  .info th, .info td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .info th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .info tr:last-child td { border-bottom: none; }
+  .info td code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .info .hint {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .formula {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--code-bg);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: #333;
+    margin: 8px 0 12px;
+  }
+
+  details { margin-top: 18px; font-size: 13px; color: var(--muted); max-width: 920px; }
+  details summary { cursor: pointer; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+  details code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Receptive Field Lab</h1>
+<p class="lead">Click any cell in the conv1, conv2 or pool output. Its receptive field gets traced back through every earlier layer all the way to the input — both visually (red boxes) and numerically (table below). Tune the kernel size <code>k</code>, stride <code>s</code> and padding <code>p</code> of each layer to see how the receptive field grows.</p>
+
+<div class="settings">
+  <div class="group in">
+    <h4><span class="swatch" style="background:#06b6d4;"></span>Input</h4>
+    <div class="row">
+      <label>size H = W
+        <input type="number" id="inSize" min="4" max="40" step="1" value="16">
+      </label>
+    </div>
+  </div>
+  <div class="group l1">
+    <h4><span class="swatch" style="background:#6366f1;"></span>Conv 1</h4>
+    <div class="row">
+      <label>k <input type="number" id="k1" min="1" max="9" step="1" value="3"></label>
+      <label>s <input type="number" id="s1" min="1" max="4" step="1" value="1"></label>
+      <label>p <input type="number" id="p1" min="0" max="4" step="1" value="1"></label>
+    </div>
+  </div>
+  <div class="group l2">
+    <h4><span class="swatch" style="background:#a855f7;"></span>Conv 2</h4>
+    <div class="row">
+      <label>k <input type="number" id="k2" min="1" max="9" step="1" value="3"></label>
+      <label>s <input type="number" id="s2" min="1" max="4" step="1" value="2"></label>
+      <label>p <input type="number" id="p2" min="0" max="4" step="1" value="1"></label>
+    </div>
+  </div>
+  <div class="group l3">
+    <h4><span class="swatch" style="background:#f97316;"></span>Max Pool</h4>
+    <div class="row">
+      <label>k <input type="number" id="k3" min="1" max="9" step="1" value="2"></label>
+      <label>s <input type="number" id="s3" min="1" max="4" step="1" value="2"></label>
+      <label>p <input type="number" id="p3" min="0" max="4" step="1" value="0"></label>
+    </div>
+  </div>
+  <div class="group" style="border-left-color:transparent">
+    <h4 style="visibility:hidden;">.</h4>
+    <button id="resetBtn" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 13px;">reset selection</button>
+  </div>
+</div>
+
+<div class="maps">
+
+  <div class="map">
+    <h3><span><span class="swatch" style="background:#06b6d4;"></span>Input</span><span class="size" id="size-0"></span></h3>
+    <div class="op" id="op-0">image / activation</div>
+    <div class="grid-wrap"><div class="grid" id="grid-0"></div></div>
+  </div>
+
+  <div class="map">
+    <h3><span><span class="swatch" style="background:#6366f1;"></span>Conv 1 output</span><span class="size" id="size-1"></span></h3>
+    <div class="op" id="op-1"></div>
+    <div class="grid-wrap"><div class="grid" id="grid-1"></div></div>
+  </div>
+
+  <div class="map">
+    <h3><span><span class="swatch" style="background:#a855f7;"></span>Conv 2 output</span><span class="size" id="size-2"></span></h3>
+    <div class="op" id="op-2"></div>
+    <div class="grid-wrap"><div class="grid" id="grid-2"></div></div>
+  </div>
+
+  <div class="map">
+    <h3><span><span class="swatch" style="background:#f97316;"></span>Pool output</span><span class="size" id="size-3"></span></h3>
+    <div class="op" id="op-3"></div>
+    <div class="grid-wrap"><div class="grid" id="grid-3"></div></div>
+  </div>
+
+</div>
+
+<div class="info">
+  <h2>Trace</h2>
+  <p class="hint" id="traceHint">Click any cell in conv1, conv2 or pool to see its receptive-field trace.</p>
+  <div id="traceTable"></div>
+  <h2 style="margin-top:14px;">Useful summary</h2>
+  <div id="summary" class="formula">click a cell to populate</div>
+</div>
+
+<details open>
+  <summary>How the math works</summary>
+  <p>For a single conv/pool layer with kernel <code>k</code>, stride <code>s</code> and padding <code>p</code>, output cell <code>i</code> reads input positions <code>[i·s − p, i·s − p + k − 1]</code>. Output size:</p>
+  <div class="formula">out = ⌊(in + 2p − k) / s⌋ + 1</div>
+  <p>Going backward through L layers, you propagate the range <code>[low, high]</code> using the same formula at every step. The <b>effective stride</b> after L layers (often called the "jump") is the product of all the strides; the <b>theoretical receptive field</b> grows as:</p>
+  <div class="formula">RF_L = RF_{L−1} + (k_L − 1) · jump_{L−1}</div>
+  <p>which is the "sum of dilated kernels". The visual trace below shows the <i>actual</i> coordinate range — it can stick out beyond the input when there's padding (shaded box outside the grid).</p>
+  <p><b>Things to try</b>:</p>
+  <ul style="margin:4px 0 0 18px; padding:0; color: var(--text);">
+    <li>Bigger kernel → bigger RF (linearly).</li>
+    <li>Stride 2 → RF doubles for every layer after it. Stacking two stride-2 layers gives a 4× jump.</li>
+    <li>Padding 0 vs 1 → with valid (p=0) convolutions, the feature map shrinks faster and the RF stops growing as quickly in coordinate units.</li>
+    <li>Pool k=2 s=2 → standard down-sampling; pool k=3 s=2 → overlapping pool (a bit larger RF, slightly smaller map).</li>
+    <li>Try k=5 in conv1 with stride 1 — even one early big kernel gives a huge final RF.</li>
+  </ul>
+</details>
+
+<script>
+/* ============================================================
+   State and DOM refs
+   ============================================================ */
+const COLORS = ["#06b6d4", "#6366f1", "#a855f7", "#f97316"]; // input, conv1, conv2, pool
+const LAYER_NAMES = ["Input", "Conv 1", "Conv 2", "Pool"];
+
+let state = {
+  inSize: 16,
+  layers: [
+    { type: "conv", k: 3, s: 1, p: 1 },  // conv1
+    { type: "conv", k: 3, s: 2, p: 1 },  // conv2
+    { type: "pool", k: 2, s: 2, p: 0 },  // maxpool
+  ],
+  selected: null, // { layer: 1|2|3, i, j } — layer 0 = input (not selectable for RF)
+};
+
+const idMap = {
+  inSize: "inSize",
+  k: ["", "k1", "k2", "k3"],
+  s: ["", "s1", "s2", "s3"],
+  p: ["", "p1", "p2", "p3"],
+};
+
+function readInputs() {
+  state.inSize = clamp(parseInt(document.getElementById("inSize").value) || 16, 4, 60);
+  for (let L = 1; L <= 3; L++) {
+    state.layers[L - 1].k = clamp(parseInt(document.getElementById(idMap.k[L]).value) || 1, 1, 11);
+    state.layers[L - 1].s = clamp(parseInt(document.getElementById(idMap.s[L]).value) || 1, 1, 8);
+    state.layers[L - 1].p = clamp(parseInt(document.getElementById(idMap.p[L]).value) || 0, 0, 8);
+  }
+}
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+function outSize(inSz, k, s, p) {
+  const o = Math.floor((inSz + 2 * p - k) / s) + 1;
+  return Math.max(0, o);
+}
+
+function layerSizes() {
+  const sizes = [state.inSize];
+  for (let L = 0; L < 3; L++) {
+    const prev = sizes[sizes.length - 1];
+    const { k, s, p } = state.layers[L];
+    sizes.push(outSize(prev, k, s, p));
+  }
+  return sizes;
+}
+
+/* ============================================================
+   Receptive-field math
+   propagate a [low, high] range from layer L back to layer L-1
+   ============================================================ */
+function propagateBack(L, low, high) {
+  // L > 0
+  const { k, s, p } = state.layers[L - 1];
+  return {
+    low: low * s - p,
+    high: high * s - p + k - 1,
+  };
+}
+
+function buildTrace(L, i, j) {
+  // trace[k] = { layer: k, i_low, i_high, j_low, j_high }
+  const trace = [];
+  let iLow = i, iHigh = i, jLow = j, jHigh = j;
+  trace.push({ layer: L, iLow, iHigh, jLow, jHigh });
+  let cur = L;
+  while (cur > 0) {
+    const r = propagateBack(cur, iLow, iHigh);
+    const c = propagateBack(cur, jLow, jHigh);
+    iLow = r.low; iHigh = r.high;
+    jLow = c.low; jHigh = c.high;
+    cur--;
+    trace.push({ layer: cur, iLow, iHigh, jLow, jHigh });
+  }
+  // trace[0] = clicked layer, trace[last] = input
+  return trace;
+}
+
+function rfSizeAndJump() {
+  // Theoretical RF sizes on input after each layer
+  // jump_L = jump_{L-1} * s_L; RF_L = RF_{L-1} + (k_L - 1) * jump_{L-1}
+  // jump_0 = 1; RF_0 = 1
+  let jump = 1, rf = 1;
+  const result = [{ layer: 0, jump, rf }];
+  for (let L = 0; L < 3; L++) {
+    const { k, s } = state.layers[L];
+    rf = rf + (k - 1) * jump;
+    jump = jump * s;
+    result.push({ layer: L + 1, jump, rf });
+  }
+  return result;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+function buildGrids() {
+  const sizes = layerSizes();
+  for (let L = 0; L < 4; L++) {
+    const sz = sizes[L];
+    const op = document.getElementById("op-" + L);
+    const sizeLabel = document.getElementById("size-" + L);
+    sizeLabel.textContent = `${sz}×${sz}`;
+
+    if (L === 0) {
+      op.textContent = "input · 1×1 cells";
+    } else {
+      const lay = state.layers[L - 1];
+      const tag = lay.type === "conv" ? "conv2d" : "maxpool";
+      op.textContent = `${tag}  k=${lay.k}  s=${lay.s}  p=${lay.p}`;
+    }
+
+    const grid = document.getElementById("grid-" + L);
+    grid.innerHTML = "";
+    if (sz <= 0) {
+      grid.style.gridTemplateColumns = "1fr";
+      const note = document.createElement("div");
+      note.style.cssText = "padding:8px;color:#ef4444;font-size:11px;text-align:center";
+      note.textContent = "output size ≤ 0 — invalid params";
+      grid.appendChild(note);
+      continue;
+    }
+    grid.style.gridTemplateColumns = `repeat(${sz}, 1fr)`;
+
+    for (let i = 0; i < sz; i++) {
+      for (let j = 0; j < sz; j++) {
+        const c = document.createElement("div");
+        c.className = "cell";
+        c.dataset.layer = L;
+        c.dataset.i = i;
+        c.dataset.j = j;
+        c.title = `${LAYER_NAMES[L]} [${i}, ${j}]`;
+        if (L > 0) {
+          c.addEventListener("click", onCellClick);
+        } else {
+          c.style.cursor = "default";
+        }
+        grid.appendChild(c);
+      }
+    }
+  }
+}
+
+function clearHighlights() {
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("selected", "rf", "out-of-bounds"));
+  document.querySelectorAll(".rf-box").forEach(b => b.remove());
+}
+
+function applyTrace(trace) {
+  const sizes = layerSizes();
+  for (const t of trace) {
+    const L = t.layer;
+    const sz = sizes[L];
+    const grid = document.getElementById("grid-" + L);
+    if (!grid) continue;
+    if (L === trace[0].layer) {
+      // clicked cell
+      const cell = grid.children[t.iLow * sz + t.jLow];
+      if (cell) cell.classList.add("selected");
+    } else {
+      // RF on earlier layer — highlight in-bounds cells
+      for (let i = t.iLow; i <= t.iHigh; i++) {
+        for (let j = t.jLow; j <= t.jHigh; j++) {
+          if (i >= 0 && i < sz && j >= 0 && j < sz) {
+            const cell = grid.children[i * sz + j];
+            if (cell) cell.classList.add("rf");
+          }
+        }
+      }
+      // Always draw a bounding box (even if extending out of bounds)
+      const wrap = grid.parentElement;
+      const rect = wrap.getBoundingClientRect();
+      // Each cell's nominal width in fraction:
+      const fr = 1 / sz;
+      const padPct = 0; // visual padding inside grid-wrap
+      // Convert i_low..i_high to top/left percentages relative to grid-wrap
+      const topPct  = (t.iLow / sz) * 100;
+      const leftPct = (t.jLow / sz) * 100;
+      const hPct = ((t.iHigh - t.iLow + 1) / sz) * 100;
+      const wPct = ((t.jHigh - t.jLow + 1) / sz) * 100;
+      const box = document.createElement("div");
+      box.className = "rf-box";
+      box.style.top = topPct + "%";
+      box.style.left = leftPct + "%";
+      box.style.width = wPct + "%";
+      box.style.height = hPct + "%";
+      wrap.appendChild(box);
+    }
+  }
+}
+
+function renderTraceTable(trace) {
+  const sizes = layerSizes();
+  const rows = trace.slice().reverse().map(t => {
+    const L = t.layer;
+    const sz = sizes[L];
+    const inBoundsRows = `[${Math.max(0, t.iLow)}, ${Math.min(sz - 1, t.iHigh)}]`;
+    const fullRows = `[${t.iLow}, ${t.iHigh}]`;
+    const inBoundsCols = `[${Math.max(0, t.jLow)}, ${Math.min(sz - 1, t.jHigh)}]`;
+    const fullCols = `[${t.jLow}, ${t.jHigh}]`;
+    const rfH = t.iHigh - t.iLow + 1;
+    const rfW = t.jHigh - t.jLow + 1;
+    const oob = (t.iLow < 0 || t.jLow < 0 || t.iHigh >= sz || t.jHigh >= sz);
+    return `
+      <tr>
+        <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${COLORS[L]};margin-right:6px;vertical-align:middle"></span>${LAYER_NAMES[L]}</td>
+        <td>${sz}×${sz}</td>
+        <td><code>rows ${fullRows}</code></td>
+        <td><code>cols ${fullCols}</code></td>
+        <td>${rfH}×${rfW}</td>
+        <td>${oob ? `<span style="color:#ef4444">extends past edge</span>` : `in bounds`}</td>
+      </tr>`;
+  }).join("");
+  const html = `
+    <table>
+      <thead>
+        <tr><th>layer</th><th>map size</th><th>row range</th><th>col range</th><th>RF size</th><th>note</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.getElementById("traceTable").innerHTML = html;
+}
+
+function renderSummary(trace) {
+  const inputSlice = trace[trace.length - 1];
+  const L = trace[0].layer;
+  const sizes = layerSizes();
+  const rfStats = rfSizeAndJump();
+  const rfSize = rfStats[L].rf;
+  const jump = rfStats[L].jump;
+  const inputRangeH = `${inputSlice.iHigh - inputSlice.iLow + 1}×${inputSlice.jHigh - inputSlice.jLow + 1}`;
+  const clicked = trace[0];
+  const html =
+    `clicked ${LAYER_NAMES[L]}[${clicked.iLow}, ${clicked.jLow}]  → ` +
+    `input RF rows [${inputSlice.iLow}, ${inputSlice.iHigh}], cols [${inputSlice.jLow}, ${inputSlice.jHigh}]  · ` +
+    `RF size on input = ${inputRangeH}  ·  ` +
+    `theoretical RF after L=${L} = ${rfSize}×${rfSize}  ·  ` +
+    `effective stride (jump) = ${jump}`;
+  document.getElementById("summary").textContent = html;
+  document.getElementById("traceHint").style.display = "none";
+}
+
+/* ============================================================
+   Interaction
+   ============================================================ */
+function onCellClick(ev) {
+  const t = ev.currentTarget;
+  const L = parseInt(t.dataset.layer);
+  const i = parseInt(t.dataset.i);
+  const j = parseInt(t.dataset.j);
+  state.selected = { layer: L, i, j };
+  rebuildHighlights();
+}
+
+function rebuildHighlights() {
+  clearHighlights();
+  if (!state.selected) return;
+  const trace = buildTrace(state.selected.layer, state.selected.i, state.selected.j);
+  applyTrace(trace);
+  renderTraceTable(trace);
+  renderSummary(trace);
+}
+
+function onParamChange() {
+  readInputs();
+  buildGrids();
+  // Try to preserve selection if still valid
+  if (state.selected) {
+    const sizes = layerSizes();
+    const sz = sizes[state.selected.layer];
+    if (state.selected.i < sz && state.selected.j < sz && sz > 0) {
+      rebuildHighlights();
+    } else {
+      state.selected = null;
+      document.getElementById("traceTable").innerHTML = "";
+      document.getElementById("summary").textContent = "click a cell to populate";
+      document.getElementById("traceHint").style.display = "";
+    }
+  }
+}
+
+/* ============================================================
+   Boot
+   ============================================================ */
+function init() {
+  ["inSize", "k1", "s1", "p1", "k2", "s2", "p2", "k3", "s3", "p3"].forEach(id => {
+    document.getElementById(id).addEventListener("input", onParamChange);
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    state.selected = null;
+    clearHighlights();
+    document.getElementById("traceTable").innerHTML = "";
+    document.getElementById("summary").textContent = "click a cell to populate";
+    document.getElementById("traceHint").style.display = "";
+  });
+  readInputs();
+  buildGrids();
+}
+init();
+</script>
+
+</body>
+</html>
